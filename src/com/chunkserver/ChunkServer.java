@@ -19,7 +19,7 @@ import java.net.UnknownHostException;
 
 public class ChunkServer implements ChunkServerInterface {
 	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-//	final static String osxFilePath = "/Volumes/SD/edu/cs485/project/temp/";	// temp file to be used on local development
+	// final static String filePath = "C:\\Users\\leecliff\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
 	public static long counter;
 
 	/**
@@ -30,7 +30,6 @@ public class ChunkServer implements ChunkServerInterface {
 		
 		// initialize static counter to number of files in ChunkServer dir
 		ChunkServer.counter = new File(filePath).list().length;
-//		ChunkServer.counter = new File(osxFilePath).list().length;
 	}
 
 	/**
@@ -49,7 +48,6 @@ public class ChunkServer implements ChunkServerInterface {
 
 			// create a chunk file
 			chunkFile = new RandomAccessFile(filePath + chunkHandle, "rw");
-//			chunkFile = new RandomAccessFile(osxFilePath + chunkHandle, "rw");
 			chunkFile.setLength(ChunkServer.ChunkSize);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -75,7 +73,6 @@ public class ChunkServer implements ChunkServerInterface {
 		try {
 			// check if chunk handle is valid & file exists
 			File chunkFile = new File(filePath + ChunkHandle);
-//			File chunkFile = new File(osxFilePath + ChunkHandle);
 			if (!chunkFile.exists()) {
 				return false;
 			}
@@ -107,7 +104,6 @@ public class ChunkServer implements ChunkServerInterface {
 		RandomAccessFile chunk = null;
 		try {
 			chunk = new RandomAccessFile(filePath + ChunkHandle, "r");
-//			chunk = new RandomAccessFile(osxFilePath + ChunkHandle, "r");
 			
 			byte[] buffer = new byte[NumberOfBytes];
 			chunk.read(buffer, offset, NumberOfBytes);
