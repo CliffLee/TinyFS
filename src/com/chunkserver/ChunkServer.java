@@ -5,10 +5,17 @@ import com.interfaces.ChunkServerInterface;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * implementation of interfaces at the chunkserver side
@@ -18,19 +25,140 @@ import java.net.UnknownHostException;
  */
 
 public class ChunkServer implements ChunkServerInterface {
+	// networking
+	public String host;
+	public int port; 
+	public ServerSocket csSocket;
+	
+	// client thread pool
+	public final ExecutorService threadPool = Executors.newFixedThreadPool(10);
+
+	// db/file management
 	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-	// final static String filePath = "C:\\Users\\leecliff\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
+//	final static String filePath = "C:\\Users\\leecliff\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
+//	final static String filePath = "/Volumes/SD/edu/cs485/project/temp/";
+
 	public static long counter;
 
+	public static void main(String[] args) {
+		ChunkServer cs = new ChunkServer();
+		
+		cs.serve();
+	}
+	
 	/**
-	 * Initialize the chunk server
+	 * ChunkServer constructor
 	 */
 	public ChunkServer() {
-		System.out.println("Initializing chunk server...");
-		
-		// initialize static counter to number of files in ChunkServer dir
-		ChunkServer.counter = new File(filePath).list().length;
+		try {
+			this.initialize();
+			this.generateConfigFile();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
+	
+	/**
+	 *******************
+	 * Networking API *
+	 *****************
+	 */
+	
+	/**
+	 * Server initialization function
+	 */
+	private void initialize() throws IOException {
+		// initialize static counter to number of files in ChunkServer dir
+		try {
+			ChunkServer.counter = new File(filePath).list().length;
+		} catch (NullPointerException e) {
+				e.printStackTrace();
+		}
+		
+		// attempt to assign network variables and initialize server vars
+		this.host = InetAddress.getLocalHost().getHostAddress();
+		this.port = 5432;
+
+		// initialize chunk server ServerSocket
+		this.csSocket = new ServerSocket(port);
+		
+		// register shutdown hook for threadpool
+		this.registerHooks();
+	}
+	
+	
+	/**
+	 * Register hooks
+	 * Primarily for shutdown hook on SIGINT for graceful shutdown
+	 */
+	private void registerHooks() {
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				threadPool.shutdown();
+			}
+		});		
+	}
+	
+	/**
+	 * Config file generation function
+	 * 
+	 * Creates config file for clients to use once server is done initializing
+	 */
+	public void generateConfigFile() {
+		File config = new File("./config.txt");
+		String configString = String.format("%s:%d", this.host, this.port);
+		FileWriter configWriter = null;
+		try {
+			configWriter = new FileWriter(config, false);
+			configWriter.write(configString);
+			configWriter.close();
+			
+			System.out.printf("Configuration written to \'%s\'\n", config.getAbsolutePath());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Server execution loop function
+	 */
+	public void serve() {
+		System.out.printf("ChunkServer serving at %s:%d...\n", this.host, this.port);
+		
+		try {
+			for (;;) {
+				this.threadPool.execute(new ChunkServerThread(this.csSocket.accept(), this));
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			this.threadPool.shutdown();
+		}
+
+		if (this.csSocket != null) {
+			try {
+				this.csSocket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	/**
+	 * Health check function
+	 */
+	public String healthcheck() {
+		System.out.println("Server pinged for health check");
+		
+		return "STATUS OK";
+	}
+	
+	
+	/**
+	 ****************
+	 * FileSys API *
+	 **************
+	 */
 
 	/**
 	 * Each chunk corresponds to a file. Return the chunk handle of the last chunk
