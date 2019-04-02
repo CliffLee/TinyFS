@@ -122,7 +122,7 @@ public class Client implements ClientInterface {
 			write(out, this.concatByteArrays(payload));
 
 			byte[] response = read(in);
-			
+
 			return ByteBuffer.wrap(response).getInt() != 0;
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -159,6 +159,7 @@ public class Client implements ClientInterface {
 			write(out, this.concatByteArrays(payload));
 			
 			byte[] response = read(in);
+			
 			return response;
 		} catch (IOException e) {
 			e.printStackTrace();

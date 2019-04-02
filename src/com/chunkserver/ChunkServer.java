@@ -36,6 +36,7 @@ public class ChunkServer implements ChunkServerInterface {
 	// db/file management
 	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
 //	final static String filePath = "C:\\Users\\leecliff\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
+//	final static String filePath = "\\\\Vlabfs.vlab.usc.edu\\home$\\leecliff\\Desktop\\cs485\\TinyFS\\csci485Disk\\";
 //	final static String filePath = "/Volumes/SD/edu/cs485/project/temp/";
 
 	public static long counter;
