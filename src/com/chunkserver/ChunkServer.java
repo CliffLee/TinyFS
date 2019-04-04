@@ -1,254 +1,222 @@
 package com.chunkserver;
 
-import com.interfaces.ChunkServerInterface;
-
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
-
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+//import java.util.Arrays;
+
+import com.client.Client;
+import com.interfaces.ChunkServerInterface;
 
 /**
  * implementation of interfaces at the chunkserver side
- * 
- * @author Clifford Lee 9477802367
+ * @author Shahram Ghandeharizadeh
  *
  */
 
 public class ChunkServer implements ChunkServerInterface {
-	// networking
-	public String host;
-	public int port; 
-	public ServerSocket csSocket;
+	final static String filePath = "csci485/";	//or C:\\newfile.txt
+	public final static String ClientConfigFile = "ClientConfig.txt";
 	
-	// client thread pool
-	public final ExecutorService threadPool = Executors.newFixedThreadPool(10);
-
-	// db/file management
-	final static String filePath = "C:\\Users\\shahram\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-//	final static String filePath = "C:\\Users\\leecliff\\Documents\\TinyFS-2\\csci485Disk\\"; // or C:\\newfile.txt
-//	final static String filePath = "\\\\Vlabfs.vlab.usc.edu\\home$\\leecliff\\Desktop\\cs485\\TinyFS\\csci485Disk\\";
-//	final static String filePath = "/Volumes/SD/edu/cs485/project/temp/";
-
+	//Used for the file system
 	public static long counter;
+	
+	public static int PayloadSZ = Integer.SIZE/Byte.SIZE;  //Number of bytes in an integer
+	public static int CMDlength = Integer.SIZE/Byte.SIZE;  //Number of bytes in an integer  
+	
+	//Commands recognized by the Server
+	public static final int CreateChunkCMD = 101;
+	public static final int ReadChunkCMD = 102;
+	public static final int WriteChunkCMD = 103;
+	
+	//Replies provided by the server
+	public static final int TRUE = 1;
+	public static final int FALSE = 0;
+	
+	/**
+	 * Initialize the chunk server
+	 */
+	public ChunkServer(){
+		File dir = new File(filePath);
+		File[] fs = dir.listFiles();
 
-	public static void main(String[] args) {
-		ChunkServer cs = new ChunkServer();
-		
-		cs.serve();
-	}
-	
-	/**
-	 * ChunkServer constructor
-	 */
-	public ChunkServer() {
-		try {
-			this.initialize();
-			this.generateConfigFile();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	/**
-	 *******************
-	 * Networking API *
-	 *****************
-	 */
-	
-	/**
-	 * Server initialization function
-	 */
-	private void initialize() throws IOException {
-		// initialize static counter to number of files in ChunkServer dir
-		try {
-			ChunkServer.counter = new File(filePath).list().length;
-		} catch (NullPointerException e) {
-				e.printStackTrace();
-		}
-		
-		// attempt to assign network variables and initialize server vars
-		this.host = InetAddress.getLocalHost().getHostAddress();
-		this.port = 5432;
-
-		// initialize chunk server ServerSocket
-		this.csSocket = new ServerSocket(port);
-		
-		// register shutdown hook for threadpool
-		this.registerHooks();
-	}
-	
-	
-	/**
-	 * Register hooks
-	 * Primarily for shutdown hook on SIGINT for graceful shutdown
-	 */
-	private void registerHooks() {
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			@Override
-			public void run() {
-				threadPool.shutdown();
-			}
-		});		
-	}
-	
-	/**
-	 * Config file generation function
-	 * 
-	 * Creates config file for clients to use once server is done initializing
-	 */
-	public void generateConfigFile() {
-		File config = new File("./config.txt");
-		String configString = String.format("%s:%d", this.host, this.port);
-		FileWriter configWriter = null;
-		try {
-			configWriter = new FileWriter(config, false);
-			configWriter.write(configString);
-			configWriter.close();
+		if(fs.length == 0){
+			counter = 0;
+		}else{
+			long[] cntrs = new long[fs.length];
+			for (int j=0; j < cntrs.length; j++)
+				cntrs[j] = Long.valueOf( fs[j].getName() ); 
 			
-			System.out.printf("Configuration written to \'%s\'\n", config.getAbsolutePath());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	/**
-	 * Server execution loop function
-	 */
-	public void serve() {
-		System.out.printf("ChunkServer serving at %s:%d...\n", this.host, this.port);
-		
-		try {
-			for (;;) {
-				this.threadPool.execute(new ChunkServerThread(this.csSocket.accept(), this));
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-			this.threadPool.shutdown();
-		}
-
-		if (this.csSocket != null) {
-			try {
-				this.csSocket.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			Arrays.sort(cntrs);
+			counter = cntrs[cntrs.length - 1];
 		}
 	}
 	
 	/**
-	 * Health check function
+	 * Each chunk is corresponding to a file.
+	 * Return the chunk handle of the last chunk in the file.
 	 */
-	public String healthcheck() {
-		System.out.println("Server pinged for health check");
-		
-		return "STATUS OK";
+	public String createChunk() {
+		counter++;
+		return String.valueOf(counter);
 	}
 	
+	/**
+	 * Write the byte array to the chunk at the offset
+	 * The byte array size should be no greater than 4KB
+	 */
+	public boolean writeChunk(String ChunkHandle, byte[] payload, int offset) {
+		try {
+			//If the file corresponding to ChunkHandle does not exist then create it before writing into it
+			RandomAccessFile raf = new RandomAccessFile(filePath + ChunkHandle, "rw");
+			raf.seek(offset);
+			raf.write(payload, 0, payload.length);
+			raf.close();
+			return true;
+		} catch (IOException ex) {
+			ex.printStackTrace();
+			return false;
+		}
+	}
 	
-	/**
-	 ****************
-	 * FileSys API *
-	 **************
-	 */
-
-	/**
-	 * Each chunk corresponds to a file. Return the chunk handle of the last chunk
-	 * in the file.
-	 */
-	public String initializeChunk() {
-		// initialize as a null string
-		String chunkHandle = null;
-		RandomAccessFile chunkFile = null;
-		
-		try {
-			// generate a valid chunk handle
-			chunkHandle = String.format("%s_%d", InetAddress.getLocalHost().getHostAddress(), counter);
-			++counter;
-
-			// create a chunk file
-			chunkFile = new RandomAccessFile(filePath + chunkHandle, "rw");
-			chunkFile.setLength(ChunkServer.ChunkSize);
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		} finally {
-			try {
-				chunkFile.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		
-		return chunkHandle;
-	}
-
-	/**
-	 * Write the byte array to the chunk at the specified offset The byte array size
-	 * should be no greater than 4KB
-	 */
-	public boolean putChunk(String ChunkHandle, byte[] payload, int offset) {
-		RandomAccessFile chunk = null;
-		
-		try {
-			// check if chunk handle is valid & file exists
-			File chunkFile = new File(filePath + ChunkHandle);
-			if (!chunkFile.exists()) {
-				return false;
-			}
-
-			// load file with chunk handle
-			chunk = new RandomAccessFile(chunkFile, "rw");
-
-			// write payload at offset for given length of payload
-			chunk.write(payload, offset, payload.length);
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			if (chunk != null) {
-				try {
-					chunk.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-
-		return true;
-	}
-
 	/**
 	 * read the chunk at the specific offset
 	 */
-	public byte[] getChunk(String ChunkHandle, int offset, int NumberOfBytes) {
-		RandomAccessFile chunk = null;
+	public byte[] readChunk(String ChunkHandle, int offset, int NumberOfBytes) {
 		try {
-			chunk = new RandomAccessFile(filePath + ChunkHandle, "r");
+			//If the file for the chunk does not exist the return null
+			boolean exists = (new File(filePath + ChunkHandle)).exists();
+			if (exists == false) return null;
 			
-			byte[] buffer = new byte[NumberOfBytes];
-			chunk.read(buffer, offset, NumberOfBytes);
-			
-			return buffer;
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
+			//File for the chunk exists then go ahead and read it
+			byte[] data = new byte[NumberOfBytes];
+			RandomAccessFile raf = new RandomAccessFile(filePath + ChunkHandle, "rw");
+			raf.seek(offset);
+			raf.read(data, 0, NumberOfBytes);
+			raf.close();
+			return data;
+		} catch (IOException ex){
+			ex.printStackTrace();
+			return null;
+		}
+	}
+	
+	public static void ReadAndProcessRequests()
+	{
+		ChunkServer cs = new ChunkServer();
+		
+		//Used for communication with the Client via the network
+		int ServerPort = 0; //Set to 0 to cause ServerSocket to allocate the port 
+		ServerSocket commChanel = null;
+		ObjectOutputStream WriteOutput = null;
+		ObjectInputStream ReadInput = null;
+		
+		try {
+			//Allocate a port and write it to the config file for the Client to consume
+			commChanel = new ServerSocket(ServerPort);
+			ServerPort=commChanel.getLocalPort();
+			PrintWriter outWrite=new PrintWriter(new FileOutputStream(ClientConfigFile));
+			outWrite.println("localhost:"+ServerPort);
+			outWrite.close();
+		} catch (IOException ex) {
+			System.out.println("Error, failed to open a new socket to listen on.");
+			ex.printStackTrace();
+		}
+		
+		boolean done = false;
+		Socket ClientConnection = null;  //A client's connection to the server
+
+		while (!done){
 			try {
-				chunk.close();
-			} catch (IOException e) {
-				e.printStackTrace();
+				ClientConnection = commChanel.accept();
+				ReadInput = new ObjectInputStream(ClientConnection.getInputStream());
+				WriteOutput = new ObjectOutputStream(ClientConnection.getOutputStream());
+				
+				//Use the existing input and output stream as long as the client is connected
+				while (!ClientConnection.isClosed()) {
+					int payloadsize =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+					if (payloadsize == -1) 
+						break;
+					int CMD = Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+					switch (CMD){
+					case CreateChunkCMD:
+						String chunkhandle = cs.createChunk();
+						byte[] CHinbytes = chunkhandle.getBytes();
+						WriteOutput.writeInt(ChunkServer.PayloadSZ + CHinbytes.length);
+						WriteOutput.write(CHinbytes);
+						WriteOutput.flush();
+						break;
+
+					case ReadChunkCMD:
+						int offset =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+						int payloadlength =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+						int chunkhandlesize = payloadsize - ChunkServer.PayloadSZ - ChunkServer.CMDlength - (2 * 4);
+						if (chunkhandlesize < 0)
+							System.out.println("Error in ChunkServer.java, ReadChunkCMD has wrong size.");
+						byte[] CHinBytes = Client.RecvPayload("ChunkServer", ReadInput, chunkhandlesize);
+						String ChunkHandle = (new String(CHinBytes)).toString();
+						
+						byte[] res = cs.readChunk(ChunkHandle, offset, payloadlength);
+						
+						if (res == null)
+							WriteOutput.writeInt(ChunkServer.PayloadSZ);
+						else {
+							WriteOutput.writeInt(ChunkServer.PayloadSZ + res.length);
+							WriteOutput.write(res);
+						}
+						WriteOutput.flush();
+						break;
+
+					case WriteChunkCMD:
+						offset =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+						payloadlength =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+						byte[] payload = Client.RecvPayload("ChunkServer", ReadInput, payloadlength);
+						chunkhandlesize = payloadsize - ChunkServer.PayloadSZ - ChunkServer.CMDlength - (2 * 4) - payloadlength;
+						if (chunkhandlesize < 0)
+							System.out.println("Error in ChunkServer.java, WritehChunkCMD has wrong size.");
+						CHinBytes = Client.RecvPayload("ChunkServer", ReadInput, chunkhandlesize);
+						ChunkHandle = (new String(CHinBytes)).toString();
+
+						//Call the writeChunk command
+						if (cs.writeChunk(ChunkHandle, payload, offset))
+							WriteOutput.writeInt(ChunkServer.TRUE);
+						else WriteOutput.writeInt(ChunkServer.FALSE);
+						
+						WriteOutput.flush();
+						break;
+
+					default:
+						System.out.println("Error in ChunkServer, specified CMD "+CMD+" is not recognized.");
+						break;
+					}
+				}
+			} catch (IOException ex){
+				System.out.println("Client Disconnected");
+			} finally {
+				try {
+					if (ClientConnection != null)
+						ClientConnection.close();
+					if (ReadInput != null)
+						ReadInput.close();
+					if (WriteOutput != null) WriteOutput.close();
+				} catch (IOException fex){
+					System.out.println("Error (ChunkServer):  Failed to close either a valid connection or its input/output stream.");
+					fex.printStackTrace();
+				}
 			}
 		}
-
-		return null;
 	}
 
+	public static void main(String args[])
+	{
+		ReadAndProcessRequests();
+	}
 }
