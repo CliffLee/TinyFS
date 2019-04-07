@@ -181,7 +181,7 @@ public class ChunkServer implements ChunkServerInterface {
 						byte[] payload = Client.RecvPayload("ChunkServer", ReadInput, payloadlength);
 						chunkhandlesize = payloadsize - ChunkServer.PayloadSZ - ChunkServer.CMDlength - (2 * 4) - payloadlength;
 						if (chunkhandlesize < 0)
-							System.out.println("Error in ChunkServer.java, WritehChunkCMD has wrong size.");
+							System.out.println("Error in ChunkServer.java, WriteChunkCMD has wrong size.");
 						CHinBytes = Client.RecvPayload("ChunkServer", ReadInput, chunkhandlesize);
 						ChunkHandle = (new String(CHinBytes)).toString();
 
