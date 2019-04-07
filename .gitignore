@@ -13,3 +13,6 @@ MasterConfig.txt
 .classpath
 .project
 .settings/
+
+# eclipse compiled
+bin/

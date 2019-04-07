@@ -7,6 +7,7 @@ public class ClientFS {
 		DirNotEmpty, //Returned when a non-empty directory is deleted
 		SrcDirNotExistent, // Returned when source directory does not exist
 		DestDirExists, // Returned when a destination directory exists
+		DestDirNotExistent, // CL: We should have this for delete dir no?
 		FileExists, // Returned when a file exists
 		FileDoesNotExist, // Returns when a file does not exist
 		BadHandle, // Returned when the handle for an open file is not valid
