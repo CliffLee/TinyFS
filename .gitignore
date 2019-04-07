@@ -1,4 +1,15 @@
+# System files
 .DS_Store
+
+# Temporary database backing directories
 csci485Disk/
 temp/
-./config.txt
+
+# configuration files
+ClientConfig.txt
+MasterConfig.txt
+
+# eclipse bloat
+.classpath
+.project
+.settings/
