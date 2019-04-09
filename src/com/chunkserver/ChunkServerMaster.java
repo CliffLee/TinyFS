@@ -110,7 +110,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		return FSReturnVals.Success;
 	}
 
-	public void deleteDir(String src, String dirname) {
+	public FSReturnVals deleteDir(String src, String dirname) {
 		// see if src dir exists
 		if (!dirExists(src)) {
 			return FSReturnVals.SrcDirNotExistent;
@@ -133,14 +133,33 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	public void renameDir(String src, String newName) {
+		// see if src dir exists
+		if (!dirExists(src)) {
+			return FSReturnVals.SrcDirNotExistent;
+		}
 
+		// see if new name exists already
+		if (dirExists(newName)) {
+			return FSReturnVals.DestDirExists;
+		}
+
+		// rename
+		namespace.put(newName, namespace.get(src));
+		namespace.remove(src);
 	}
 
-	public String[] listDir(String target) {
-		Set<String> resultSet = findImmediateNamespaceDescendants(target);
-		String[] result = resultSet.toArray(new String[resultSet.size()]);
+	public FSReturnVals listDir(String target, String[] result) {
+		// see if src dir exists
+		if (!dirExists(target)) {
+			return FSReturnVals.SrcDirNotExistent;
+		}
 
-		return result;
+		// obtain immediate namespace descendant set
+		// convert to array and populate result
+		Set<String> resultSet = findImmediateNamespaceDescendants(target);
+		result = resultSet.toArray(new String[resultSet.size()]);
+
+		return return FSReturnVals.Success;
 	}
 
 	/**
@@ -151,23 +170,23 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	private boolean dirExists(String path) {
 		return
 			this.namespace.containsKey(path)		// entry exists in namespace
-			&& this.namespace[path] == null;		// entry is a directory
+			&& this.namespace.get(path) == null;		// entry is a directory
 	}
 
 	private boolean fileExists(String path) {
 		return
 			this.namespace.containsKey(path)		// entry exists in namespace
-			&& this.namespace[path] != null			// entry is a file
-			&& this.namespace[path].size() != 0;	// file chunk handle list is nonempty
+			&& this.namespace.get(path) != null			// entry is a file
+			&& this.namespace.get(path).size() != 0;	// file chunk handle list is nonempty TODO CL: actually not sure if we should allow for non-zero size chunk handle lists
 	}
 
 	private void addNamespaceEntry(String path, List<String> chunkHandles) {
 		if (chunkHandles == null) {
 		// the entry is a directory
-			this.namespace[path] = null;
+			namespace.put(path, null);
 		} else {
 		// the entry is a file
-			this.namespace[path] = new ArrayList<String>();
+			namespace.put(path, new ArrayList<String>());
 		}
 	}
 
