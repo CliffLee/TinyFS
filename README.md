@@ -5,6 +5,7 @@ CSCI485 - Project Part 3
 
 * Clifford Lee
 * Sneha Patkar
+* Stephanie Hernandez
 
 ## Design
 
