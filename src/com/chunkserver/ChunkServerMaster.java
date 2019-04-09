@@ -128,8 +128,6 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			return FSReturnVals.DirNotEmpty;
 		}
 
-		// CL: should we delete children?
-
 		// delete dest dir
 		namespace.remove(String.join("/", src, dirname));
 	}
@@ -139,7 +137,10 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	public String[] listDir(String target) {
+		Set<String> resultSet = findImmediateNamespaceDescendants(target);
+		String[] result = resultSet.toArray(new String[resultSet.size()]);
 
+		return result;
 	}
 
 	/**
@@ -170,7 +171,18 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}
 	}
 
-	private List<String> findNamespaceDescendants(String prefix) {
-		return new ArrayList<String>(namespace.subMap(prefix, prefix + Character.MAX_VALUE).keySet());
+	private Set<String> findImmediateNamespaceDescendants(String prefix) {
+		map.keySet()
+			.stream()
+			.filter(s -> s.startsWith(prefix))
+			.filter(s -> s.indexOf("/") == -1)
+			.collect(Collectors.toSet());
+	}
+
+	private Set<String> findAllNamespaceDescendants(String prefix) {
+		map.keySet()
+			.stream()
+			.filter(s -> s.startsWith(prefix))
+			.collect(Collectors.toSet());
 	}
 }
