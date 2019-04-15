@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,7 +38,9 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	private Map<String, List<String>> namespace;
 
 	public ChunkServerMaster() {
-		this.namespace = new TreeMap<String, List<String>>();
+		this.namespace = new TreeMap<String, List<String>>() {{
+			put("/", null);
+		}};
 	}
 
 	public void serve() {
@@ -75,21 +78,51 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 				oos = new ObjectOutputStream(conn.getOutputStream());
 
 				while (!conn.isClosed()) {
+					// handle initial payload size and command before mux
 					int payloadSize = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
 					if (payloadSize == -1) break;
 
 					int command = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+
+					// mux switch
 					switch(command) {
 					case ClientFS.CREATE_DIR_COMMAND:
+						// req format: <srcLen - srcBytes - destLen - destBytes>
 						int srcLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
 						String src = new String(Client.RecvPayload("ChunkServerMaster", ois, srcLen));
 
-						int destLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
-						String dest = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen));
+						int destLen1 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String dest1 = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen1));
 
-						oos.writeInt(FSReturnValsToOrdinalMiddleware(createDir(src, dest)));
+						// resp format: <FSReturnVal.ordinal()>
+						oos.writeInt(createDir(src, dest1).ordinal());
 						oos.flush();
 						
+						break;
+					case ClientFS.LIST_DIR_COMMAND:
+						// req format: <dirname>
+						int destLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String dest2 = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen2));
+
+						// resp format: <resultsLen - string-1-len - string-1 - string-2-len - string-2 -
+						// ... - string-resultsLen-len - string-resultsLen>
+						List<String> results = new ArrayList<String>();
+						FSReturnVals code = listDir(dest2 + "/", results);
+
+						if (code == FSReturnVals.Success) {
+							oos.writeInt(results.size());
+
+							for (String result : results) {
+								byte[] resultBuf = result.getBytes();
+
+								oos.writeInt(resultBuf.length);
+								oos.write(resultBuf);
+							}
+						} else {
+							oos.writeInt(-1);
+						}
+						oos.flush();
+
 						break;
 					default:
 						break;
@@ -181,7 +214,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		return FSReturnVals.Success;
 	}
 
-	public FSReturnVals listDir(String target, String[] result) {
+	public FSReturnVals listDir(String target, List<String> result) {
 		// see if src dir exists
 		if (!dirExists(target)) {
 			return FSReturnVals.SrcDirNotExistent;
@@ -190,8 +223,10 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		// obtain immediate namespace descendant set
 		// convert to array and populate result
 		Set<String> resultSet = findImmediateNamespaceDescendants(target);
-		result = resultSet.toArray(new String[resultSet.size()]);
-
+		for (String s : resultSet) {
+			result.add(s);
+		}
+		
 		return FSReturnVals.Success;
 	}
 
@@ -224,10 +259,11 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	private Set<String> findImmediateNamespaceDescendants(String prefix) {
+		int depth = (int) prefix.chars().filter(ch -> ch == '/').count();
 		return namespace.keySet()
 			.stream()
 			.filter(s -> s.startsWith(prefix))
-			.filter(s -> s.indexOf("/") == -1)
+			.filter(s -> s.chars().filter(ch -> ch == '/').count() == depth + 1)
 			.collect(Collectors.toSet());
 	}
 
@@ -236,10 +272,6 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			.stream()
 			.filter(s -> s.startsWith(prefix))
 			.collect(Collectors.toSet());
-	}
-
-	private int FSReturnValsToOrdinalMiddleware(FSReturnVals val) {
-		return val.ordinal();
 	}
 
 	/**

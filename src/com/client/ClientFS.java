@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.chunkserver.ChunkServer;
 import com.chunkserver.ChunkServerMaster;
@@ -31,6 +33,7 @@ public class ClientFS {
 	}
 	
 	public static final int CREATE_DIR_COMMAND = 0;
+	public static final int LIST_DIR_COMMAND = 1;
 	
 	static int ServerPort = 0;
 	static Socket ClientSocket;
@@ -84,6 +87,7 @@ public class ClientFS {
 			WriteOutput.write(bsrc);
 			WriteOutput.writeInt(destLen);
 			WriteOutput.write(bdest);
+			WriteOutput.flush();
 			
 			int response = Client.ReadIntFromInputStream("ClientFS", ReadInput);
 			
@@ -126,7 +130,35 @@ public class ClientFS {
 	 * Example usage: ListDir("/Shahram/CSCI485")
 	 */
 	public String[] ListDir(String tgt) {
-		return null;
+		List<String> results = new ArrayList<String>();
+
+		try {
+			byte[] tgtBuf = tgt.getBytes();
+
+			WriteOutput.writeInt(12 + tgtBuf.length);
+			WriteOutput.writeInt(LIST_DIR_COMMAND);
+			WriteOutput.writeInt(tgtBuf.length);
+			WriteOutput.write(tgtBuf);
+			WriteOutput.flush();
+
+			int resultsLen = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+			if (resultsLen == -1) {
+				return null;
+			} else {
+				for (int i=0; i<resultsLen; i++) {
+					int lsLen = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+					String lsName = new String(Client.RecvPayload("ClientFS", ReadInput, lsLen));
+
+					results.add(lsName);
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return results.isEmpty()
+			? null
+			: results.toArray(new String[results.size()]);
 	}
 
 	/**

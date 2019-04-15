@@ -153,7 +153,6 @@ public class Client implements ClientInterface {
 			byte[] payload = RecvPayload("Client", ReadInput, ChunkSize); 
 			return payload;
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
