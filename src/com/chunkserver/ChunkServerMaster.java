@@ -7,10 +7,16 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
-import com.client.Client.FSReturnVals;
+import com.client.Client;
+import com.client.ClientFS;
+import com.client.ClientFS.FSReturnVals;
 import com.interfaces.ChunkServerMasterInterface;
 
 /**
@@ -53,11 +59,14 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			System.out.println("ERR: Failed to open new server socket!");
 			e.printStackTrace();
 		}
+		
+		System.out.printf("Chunk Server Master running on port %d...\n", servePort);
 
 		// accept connections from clients
 		Socket conn = null;
 		ObjectInputStream ois = null;
 		ObjectOutputStream oos = null;
+
 		while (true) {
 			try {
 				conn = serveSocket.accept();
@@ -66,7 +75,25 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 				oos = new ObjectOutputStream(conn.getOutputStream());
 
 				while (!conn.isClosed()) {
-					// Scan for client commands to chunkservermaster
+					int payloadSize = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+					if (payloadSize == -1) break;
+
+					int command = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+					switch(command) {
+					case ClientFS.CREATE_DIR_COMMAND:
+						int srcLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String src = new String(Client.RecvPayload("ChunkServerMaster", ois, srcLen));
+
+						int destLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String dest = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen));
+
+						oos.writeInt(FSReturnValsToOrdinalMiddleware(createDir(src, dest)));
+						oos.flush();
+						
+						break;
+					default:
+						break;
+					}
 				}
 			} catch (IOException e) {
 				System.out.println("ERR: Failed to open new client socket!");
@@ -99,12 +126,12 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}
 
 		// err if dest dir (full path) exists
-		if (dirExists(String.join("/", src, dirname))) {
+		if (dirExists(src + dirname + "/")) {
 			return FSReturnVals.DestDirExists;
 		}
 
 		// init join(src,dirname) to namespace
-		addNamespaceEntry(String.join("/", src, dirname), null);
+		addNamespaceEntry(src + dirname + "/", null);
 
 		// do something that communicates over server to client Success
 		return FSReturnVals.Success;
@@ -124,15 +151,18 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		// see if dest dir has children
 		// only time target dir not empty is if size of list returned from util fn
 		// is greater than 1
-		if (findNameSpaceDescendants(String.join("/", src, dirname)).size() > 1) {
+		if (findImmediateNamespaceDescendants(String.join("/", src, dirname)).size() > 1) {
 			return FSReturnVals.DirNotEmpty;
 		}
 
 		// delete dest dir
 		namespace.remove(String.join("/", src, dirname));
+		
+		// success
+		return FSReturnVals.Success;
 	}
 
-	public void renameDir(String src, String newName) {
+	public FSReturnVals renameDir(String src, String newName) {
 		// see if src dir exists
 		if (!dirExists(src)) {
 			return FSReturnVals.SrcDirNotExistent;
@@ -146,6 +176,9 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		// rename
 		namespace.put(newName, namespace.get(src));
 		namespace.remove(src);
+		
+		// success
+		return FSReturnVals.Success;
 	}
 
 	public FSReturnVals listDir(String target, String[] result) {
@@ -159,7 +192,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		Set<String> resultSet = findImmediateNamespaceDescendants(target);
 		result = resultSet.toArray(new String[resultSet.size()]);
 
-		return return FSReturnVals.Success;
+		return FSReturnVals.Success;
 	}
 
 	/**
@@ -191,7 +224,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	private Set<String> findImmediateNamespaceDescendants(String prefix) {
-		map.keySet()
+		return namespace.keySet()
 			.stream()
 			.filter(s -> s.startsWith(prefix))
 			.filter(s -> s.indexOf("/") == -1)
@@ -199,9 +232,23 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	private Set<String> findAllNamespaceDescendants(String prefix) {
-		map.keySet()
+		return namespace.keySet()
 			.stream()
 			.filter(s -> s.startsWith(prefix))
 			.collect(Collectors.toSet());
+	}
+
+	private int FSReturnValsToOrdinalMiddleware(FSReturnVals val) {
+		return val.ordinal();
+	}
+
+	/**
+	 *********
+	 * Main *
+	 *******
+	 */
+	public static void main(String[] args) {
+		ChunkServerMaster csm = new ChunkServerMaster();
+		csm.serve();
 	}
 }

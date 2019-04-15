@@ -1,5 +1,16 @@
 package com.client;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+
+import com.chunkserver.ChunkServer;
+import com.chunkserver.ChunkServerMaster;
+
 public class ClientFS {
 
 	public enum FSReturnVals {
@@ -18,6 +29,33 @@ public class ClientFS {
 		Success, //Returned when a method succeeds
 		Fail //Returned when a method fails
 	}
+	
+	public static final int CREATE_DIR_COMMAND = 0;
+	
+	static int ServerPort = 0;
+	static Socket ClientSocket;
+	static ObjectOutputStream WriteOutput;
+	static ObjectInputStream ReadInput;
+	
+	public ClientFS() {
+		if (ClientSocket != null) return; //The client is already connected
+		try {
+			BufferedReader binput = new BufferedReader(new FileReader(ChunkServerMaster.MasterConfigFile));
+			String port = binput.readLine();
+			port = port.substring( port.indexOf(':')+1 );
+			ServerPort = Integer.parseInt(port);
+			
+			ClientSocket = new Socket("127.0.0.1", ServerPort);
+			WriteOutput = new ObjectOutputStream(ClientSocket.getOutputStream());
+			ReadInput = new ObjectInputStream(ClientSocket.getInputStream());
+			
+			System.out.printf("ClientFS connecting to port %d...\n", ServerPort);
+		}catch (FileNotFoundException e) {
+			System.out.println("Error (Client), the config file "+ ChunkServer.ClientConfigFile +" containing the port of the ChunkServer is missing.");
+		}catch (IOException e) {
+			System.out.println("Can't find file.");
+		}
+	}
 
 	/**
 	 * Creates the specified dirname in the src directory Returns
@@ -28,7 +66,33 @@ public class ClientFS {
 	 * "CSCI485"), CreateDir("/Shahram/CSCI485/", "Lecture1")
 	 */
 	public FSReturnVals CreateDir(String src, String dirname) {
-		return null;
+		// determine src length
+		byte[] bsrc = src.getBytes();
+		int srcLen = bsrc.length;
+		
+		// determine dest length
+		byte[] bdest = dirname.getBytes();
+		int destLen = bdest.length;
+		
+		// write payload size
+		int payloadSize = 4 + 4 + 4 + srcLen + 4 + destLen;
+		
+		try {
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(CREATE_DIR_COMMAND);
+			WriteOutput.writeInt(srcLen);
+			WriteOutput.write(bsrc);
+			WriteOutput.writeInt(destLen);
+			WriteOutput.write(bdest);
+			
+			int response = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+			
+			return FSReturnVals.values()[response];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return FSReturnVals.Fail;
 	}
 
 	/**

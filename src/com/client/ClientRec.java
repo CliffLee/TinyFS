@@ -3,6 +3,7 @@ package com.client;
 import java.nio.ByteBuffer;
 
 import com.client.ClientFS.FSReturnVals;
+import com.client.RID;
 
 public class ClientRec {
 

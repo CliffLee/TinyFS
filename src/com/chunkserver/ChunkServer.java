@@ -131,6 +131,8 @@ public class ChunkServer implements ChunkServerInterface {
 			ex.printStackTrace();
 		}
 		
+		System.out.printf("Chunk Server running on port %d...\n", ServerPort);
+		
 		boolean done = false;
 		Socket ClientConnection = null;  //A client's connection to the server
 
