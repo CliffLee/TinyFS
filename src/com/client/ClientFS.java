@@ -34,6 +34,8 @@ public class ClientFS {
 	
 	public static final int CREATE_DIR_COMMAND = 0;
 	public static final int LIST_DIR_COMMAND = 1;
+	public static final int DELETE_DIR_COMMAND = 2;
+	public static final int RENAME_DIR_COMMAND = 3;
 	
 	static int ServerPort = 0;
 	static Socket ClientSocket;
@@ -107,7 +109,34 @@ public class ClientFS {
 	 * Example usage: DeleteDir("/Shahram/CSCI485/", "Lecture1")
 	 */
 	public FSReturnVals DeleteDir(String src, String dirname) {
-		return null;
+		// determine src length
+		byte[] bsrc = src.getBytes();
+		int srcLen = bsrc.length;
+		
+		// determine dest length
+		byte[] bdest = dirname.getBytes();
+		int destLen = bdest.length;
+		
+		// write payload size
+		int payloadSize = 4 + 4 + 4 + srcLen + 4 + destLen;
+
+		try {
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(DELETE_DIR_COMMAND);
+			WriteOutput.writeInt(srcLen);
+			WriteOutput.write(bsrc);
+			WriteOutput.writeInt(destLen);
+			WriteOutput.write(bdest);
+			WriteOutput.flush();
+
+			int response = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+
+			return FSReturnVals.values()[response];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return FSReturnVals.Fail;
 	}
 
 	/**
@@ -119,7 +148,31 @@ public class ClientFS {
 	 * "/Shahram/CSCI485" to "/Shahram/CSCI550"
 	 */
 	public FSReturnVals RenameDir(String src, String NewName) {
-		return null;
+		byte[] bold = src.getBytes();
+		int oldLen = bold.length;
+		
+		byte[] bnew = NewName.getBytes();
+		int newLen = bnew.length;
+		
+		int payloadSize = 4 + 4 + 4 + oldLen + 4 + newLen;
+		
+		try {
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(RENAME_DIR_COMMAND);
+			WriteOutput.writeInt(oldLen);
+			WriteOutput.write(bold);
+			WriteOutput.writeInt(newLen);
+			WriteOutput.write(bnew);
+			WriteOutput.flush();
+			
+			int response = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+			
+			return FSReturnVals.values()[response];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return FSReturnVals.Fail;
 	}
 
 	/**

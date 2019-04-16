@@ -88,16 +88,16 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 					switch(command) {
 					case ClientFS.CREATE_DIR_COMMAND:
 						// req format: <srcLen - srcBytes - destLen - destBytes>
-						int srcLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
-						String src = new String(Client.RecvPayload("ChunkServerMaster", ois, srcLen));
+						int srcLen1 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String src1 = new String(Client.RecvPayload("ChunkServerMaster", ois, srcLen1));
 
 						int destLen1 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
 						String dest1 = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen1));
 
 						// resp format: <FSReturnVal.ordinal()>
-						oos.writeInt(createDir(src, dest1).ordinal());
+						oos.writeInt(createDir(src1, dest1).ordinal());
 						oos.flush();
-						
+
 						break;
 					case ClientFS.LIST_DIR_COMMAND:
 						// req format: <dirname>
@@ -124,6 +124,31 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 						oos.flush();
 
 						break;
+					case ClientFS.DELETE_DIR_COMMAND:
+						// req format: <srcLen - srcBytes - destLen - destBytes>
+						int srcLen3 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String src3 = new String(Client.RecvPayload("ChunkServerMaster", ois, srcLen3));
+
+						int destLen3 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String dest3 = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen3));
+
+						// resp format: <FSReturnVal.ordinal()>
+						oos.writeInt(deleteDir(src3, dest3).ordinal());
+						oos.flush();
+
+						break;
+					case ClientFS.RENAME_DIR_COMMAND:
+						// req format: <origLen - origBytes - newNameLen - newNameBytes>
+						int srcLen4 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String src4 = new String(Client.RecvPayload("ChunkServerMaster", ois, srcLen4));
+
+						int destLen4 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String dest4 = new String(Client.RecvPayload("ChunkServerMaster", ois, destLen4));
+						
+						// resp format: <FSReturnVal.ordinal()>
+						oos.writeInt(renameDir(src4, dest4).ordinal());
+						oos.flush();
+						
 					default:
 						break;
 					}
@@ -177,19 +202,20 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}
 
 		// see if dest dir exists
-		if (!dirExists(String.join("/", src, dirname))) {
+		if (!dirExists(src + dirname + "/")) {
 			return FSReturnVals.DestDirNotExistent;
 		}
 
 		// see if dest dir has children
 		// only time target dir not empty is if size of list returned from util fn
 		// is greater than 1
-		if (findImmediateNamespaceDescendants(String.join("/", src, dirname)).size() > 1) {
+		Set<String> descendants = findImmediateNamespaceDescendants(src + dirname + "/");
+		if (descendants.size() > 0) {
 			return FSReturnVals.DirNotEmpty;
 		}
 
 		// delete dest dir
-		namespace.remove(String.join("/", src, dirname));
+		namespace.remove(src + dirname + "/");
 		
 		// success
 		return FSReturnVals.Success;
@@ -197,18 +223,18 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 
 	public FSReturnVals renameDir(String src, String newName) {
 		// see if src dir exists
-		if (!dirExists(src)) {
+		if (!dirExists(src + "/")) {
 			return FSReturnVals.SrcDirNotExistent;
 		}
 
 		// see if new name exists already
-		if (dirExists(newName)) {
+		if (dirExists(newName + "/")) {
 			return FSReturnVals.DestDirExists;
 		}
 
 		// rename
-		namespace.put(newName, namespace.get(src));
-		namespace.remove(src);
+		namespace.put(newName + "/", namespace.get(src + "/"));
+		namespace.remove(src + "/");
 		
 		// success
 		return FSReturnVals.Success;
