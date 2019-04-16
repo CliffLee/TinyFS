@@ -222,7 +222,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 
 		// obtain immediate namespace descendant set
 		// convert to array and populate result
-		Set<String> resultSet = findImmediateNamespaceDescendants(target);
+		Set<String> resultSet = findAllNamespaceDescendants(target);
 		for (String s : resultSet) {
 			result.add(s);
 		}
@@ -264,13 +264,17 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			.stream()
 			.filter(s -> s.startsWith(prefix))
 			.filter(s -> s.chars().filter(ch -> ch == '/').count() == depth + 1)
+			.map(s -> s.substring(0, s.length() - 1))
 			.collect(Collectors.toSet());
 	}
 
 	private Set<String> findAllNamespaceDescendants(String prefix) {
+		int depth = (int) prefix.chars().filter(ch -> ch == '/').count();
 		return namespace.keySet()
 			.stream()
 			.filter(s -> s.startsWith(prefix))
+			.filter(s -> s.chars().filter(ch -> ch == '/').count() >= depth + 1)
+			.map(s -> s.substring(0, s.length() - 1))
 			.collect(Collectors.toSet());
 	}
 
