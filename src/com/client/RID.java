@@ -1,8 +1,9 @@
 package com.client;
 
 public class RID {
-	public String macAddress;
-	public int key;
+	// ClientRec ReadFirstRecord
+	public String chunkHandle;
+	public int slotNumber;
 	
 	public RID() {
 		macAddress = "somethingstupid";

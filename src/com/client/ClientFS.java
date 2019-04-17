@@ -32,10 +32,16 @@ public class ClientFS {
 		Fail //Returned when a method fails
 	}
 	
+	// Directory CRUD codes
 	public static final int CREATE_DIR_COMMAND = 0;
 	public static final int LIST_DIR_COMMAND = 1;
 	public static final int DELETE_DIR_COMMAND = 2;
 	public static final int RENAME_DIR_COMMAND = 3;
+
+	// File CRUD codes
+	public static final int CREATE_FILE_COMMAND = 4;
+	public static final int OPEN_FILE_COMMAND = 5;
+	public static final int DELETE_FILE_COMMAND = 6;
 	
 	static int ServerPort = 0;
 	static Socket ClientSocket;
@@ -222,7 +228,31 @@ public class ClientFS {
 	 * Example usage: Createfile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals CreateFile(String tgtdir, String filename) {
-		return null;
+		byte[] parent = tgtdir.getBytes();
+		int parentLen = parent.length;
+		
+		byte[] name = filename.getBytes();
+		int nameLen = name.length;
+		
+		int payloadSize = 4 + 4 + 4 + parentLen + 4 + nameLen;
+		
+		try {
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(CREATE_FILE_COMMAND);
+			WriteOutput.writeInt(parentLen);
+			WriteOutput.write(parent);
+			WriteOutput.writeInt(nameLen);
+			WriteOutput.write(name);
+			WriteOutput.flush();
+			
+			int response = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+			
+			return FSReturnVals.values()[response];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return FSReturnVals.Fail;
 	}
 
 	/**
@@ -233,7 +263,31 @@ public class ClientFS {
 	 * Example usage: DeleteFile("/Shahram/CSCI485/Lecture1/", "Intro.pptx")
 	 */
 	public FSReturnVals DeleteFile(String tgtdir, String filename) {
-		return null;
+		byte[] parent = tgtdir.getBytes();
+		int parentLen = parent.length;
+		
+		byte[] name = filename.getBytes();
+		int nameLen = name.length;
+		
+		int payloadSize = 4 + 4 + 4 + parentLen + 4 + nameLen;
+		
+		try {
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(DELETE_FILE_COMMAND);
+			WriteOutput.writeInt(parentLen);
+			WriteOutput.write(parent);
+			WriteOutput.writeInt(nameLen);
+			WriteOutput.write(name);
+			WriteOutput.flush();
+			
+			int response = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+			
+			return FSReturnVals.values()[response];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return FSReturnVals.Fail;
 	}
 
 	/**

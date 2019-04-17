@@ -119,6 +119,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 								oos.write(resultBuf);
 							}
 						} else {
+							// TODO CL: is this good enough off case handling
 							oos.writeInt(-1);
 						}
 						oos.flush();
@@ -149,6 +150,33 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 						oos.writeInt(renameDir(src4, dest4).ordinal());
 						oos.flush();
 						
+						break;
+					case ClientFS.CREATE_FILE_COMMAND:
+						// req format: <parentLen - parentBytes - nameLen - nameBytes>
+						int parentLen1 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String parent1 = new String(Client.RecvPayload("ChunkServerMaster", ois, parentLen1));
+
+						int nameLen1 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String name1 = new String(Client.RecvPayload("ChunkServerMaster", ois, nameLen1));
+
+						// resp format: <FSReturnVal.ordinal()>
+						oos.writeInt(createFile(parent1, name1).ordinal());
+						oos.flush();
+
+						break;
+					case ClientFS.DELETE_FILE_COMMAND:
+						// req format: <parentLen - parentBytes - nameLen - nameBytes>
+						int parentLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String parent2 = new String(Client.RecvPayload("ChunkServerMaster", ois, parentLen2));
+
+						int nameLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String name2 = new String(Client.RecvPayload("ChunkServerMaster", ois, nameLen2));
+
+						// resp format: <FSReturnVal.ordinal()>
+						oos.writeInt(deleteFile(parent2, name2).ordinal());
+						oos.flush();
+
+						break;
 					default:
 						break;
 					}
@@ -256,6 +284,45 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		return FSReturnVals.Success;
 	}
 
+	public FSReturnVals createFile(String parent, String filename) {
+		// err if parent dir not existent
+		if (!dirExists(parent)) {
+			return FSReturnVals.SrcDirNotExistent;
+		}
+
+		// err if file exists
+		if (fileExists(parent + filename)) {
+			return FSReturnVals.FileExists;
+		}
+
+		// create file in namespace
+		addNamespaceEntry(parent + filename, new ArrayList<String>());
+
+		// TODO CL: store info about chunks associated with file?
+
+		// return success
+		return FSReturnVals.Success;
+	}
+
+	public FSReturnVals deleteFile(String parent, String filename) {
+		// err if parent dir does not exist
+		if (!dirExists(parent)) {
+			return FSReturnVals.SrcDirNotExistent;
+		}
+
+		// err if file does not exist
+		if (!fileExists(parent + filename)) {
+			return FSReturnVals.FileDoesNotExist;
+		}
+
+		// remove file from namespace
+		removeNamespaceEntry(parent + filename);
+
+		// TODO CL: invalidate any chunks associated with this filename
+		// return success
+		return FSReturnVals.Success;
+	}
+
 	/**
 	 **********************
 	 * FS Util Functions *
@@ -270,8 +337,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	private boolean fileExists(String path) {
 		return
 			this.namespace.containsKey(path)		// entry exists in namespace
-			&& this.namespace.get(path) != null			// entry is a file
-			&& this.namespace.get(path).size() != 0;	// file chunk handle list is nonempty TODO CL: actually not sure if we should allow for non-zero size chunk handle lists
+			&& this.namespace.get(path) != null;		// entry is a file
 	}
 
 	private void addNamespaceEntry(String path, List<String> chunkHandles) {
@@ -282,6 +348,10 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		// the entry is a file
 			namespace.put(path, new ArrayList<String>());
 		}
+	}
+
+	private void removeNamespaceEntry(String path) {
+		namespace.remove(path);
 	}
 
 	private Set<String> findImmediateNamespaceDescendants(String prefix) {
