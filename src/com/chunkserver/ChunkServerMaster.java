@@ -49,9 +49,6 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 
 	
 	public void serve() {
-		// master server instantiated
-		ChunkServerMaster master = new ChunkServerMaster();
-
 		// port allocation and config writing
 		int servePort = 0;
 		ServerSocket serveSocket = null;
