@@ -298,7 +298,9 @@ public class ClientFS {
 	 * Example usage: OpenFile("/Shahram/CSCI485/Lecture1/Intro.pptx", FH1)
 	 */
 	public FSReturnVals OpenFile(String FilePath, FileHandle ofh) {
-		return null;
+		// TODO CL: temp
+		ofh.filepath = FilePath;
+		return FSReturnVals.Success;
 	}
 
 	/**

@@ -214,6 +214,8 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	public FSReturnVals openFile(String filename, FileHandle fh) {
+		// TODO CL: probably more lock stuff here
+		fh.setFilePath(filename);
 		return FSReturnVals.Success;
 	}
 

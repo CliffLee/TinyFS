@@ -7,4 +7,8 @@ public class FileHandle {
 	public FileHandle() {
 		temp = "something";
 	}
+
+	public void setFilePath(String path) {
+		this.filepath = path;
+	}
 }
