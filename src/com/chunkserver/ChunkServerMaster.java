@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import com.client.Client;
 import com.client.ClientFS;
 import com.client.ClientFS.FSReturnVals;
+import com.client.ClientRec;
 import com.interfaces.ChunkServerMasterInterface;
 
 /**
@@ -31,6 +32,9 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	private String host;
 	private int port;
 	public final static String MasterConfigFile = "MasterConfig.txt";
+	
+	// SP: This enables us to create new chunkhandles
+	private int ChunkIndex = 0;
 
 	// CL: This should be a map of paths to potential chunk handle lists
 	// CL: Thinking if List value is empty -> directory
@@ -43,6 +47,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}};
 	}
 
+	
 	public void serve() {
 		// master server instantiated
 		ChunkServerMaster master = new ChunkServerMaster();
@@ -177,6 +182,36 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 						oos.flush();
 
 						break;
+						
+					case ClientRec.GET_LAST_CHUNK_COMMAND:
+						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename = new String(Client.RecvPayload("ChunkServerMaster", ois, filenameLen));
+						byte [] chunkhandle = getLastChunk(filename).getBytes();
+						oos.writeInt(chunkhandle.length);
+						oos.write(chunkhandle);
+						oos.flush();
+						
+					case ClientRec.ADD_CHUNK_COMMAND:
+						int filename2Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename2 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename2Len));
+						byte [] chunkhandle2 = addChunk(filename2).getBytes();
+						oos.writeInt(chunkhandle2.length);
+						oos.write(chunkhandle2);
+						oos.flush();
+						
+					case ClientRec.GET_NUM_CHUNKS_COMMAND:
+						int filename3Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename3 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename3Len));
+						oos.writeInt(getNumChunks(filename3));
+						oos.flush();
+								
+					case ClientRec.GET_CHUNK_COMMAND:
+						int filename4Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename4 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename4Len));
+						int chunkIndex = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						oos.write(getChunk(filename4, chunkIndex).getBytes());
+						oos.flush();		
+							
 					default:
 						break;
 					}
@@ -373,7 +408,62 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			.map(s -> s.substring(0, s.length() - 1))
 			.collect(Collectors.toSet());
 	}
+	
+	// SP: Added for appendRecord functionality
+	private String getLastChunk (String filepath) {
+		String s = "None";
+		if (this.namespace.containsKey(filepath)) {
+			List<String> chunks = this.namespace.get(filepath);
+			if (chunks.size() != 0)
+			{
+				return chunks.get(chunks.size()-1);
+			}
+		}
+		return s;
+	}
 
+	// SP: Added for appendRecord functionality
+	private String addChunk(String filepath) {
+		String newChunkhandle = "None";
+		if (this.namespace.containsKey(filepath)) {
+			newChunkhandle = String.valueOf(ChunkIndex);
+			this.namespace.get(filepath).add(newChunkhandle);
+			ChunkIndex +=1;
+		}
+		return newChunkhandle;
+	}
+	
+	// SP: Added for getFirstRecord functionality
+	private String getChunk (String filepath, int chunkIndex) {
+		//Invalid chunkIndex
+		if (chunkIndex < -1)
+		{
+			return null;
+		}
+		String s = null;
+		if (this.namespace.containsKey(filepath)) {
+			List<String> chunks = this.namespace.get(filepath);
+			if ((chunks.size() != 0) && chunkIndex < chunks.size())
+			{
+				return chunks.get(chunkIndex);
+			}
+			else
+			{
+				return null;
+			}
+		}
+		return s;
+	}
+	
+	// SP: Added for getFirstRecord functionality
+	private int getNumChunks (String filepath) {
+		if (this.namespace.containsKey(filepath)) {
+			List<String> chunks = this.namespace.get(filepath);
+			return chunks.size();
+		}
+		return -1;
+	}	
+	
 	/**
 	 *********
 	 * Main *
