@@ -8,7 +8,6 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,6 +17,8 @@ import java.util.stream.Collectors;
 import com.client.Client;
 import com.client.ClientFS;
 import com.client.ClientFS.FSReturnVals;
+import com.client.FileHandle;
+
 import com.interfaces.ChunkServerMasterInterface;
 
 /**
@@ -30,6 +31,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	// CL: Networking info
 	private String host;
 	private int port;
+
 	public final static String MasterConfigFile = "MasterConfig.txt";
 
 	// CL: This should be a map of paths to potential chunk handle lists
@@ -320,6 +322,10 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		return FSReturnVals.Success;
 	}
 
+	public FSReturnVals openFile(String filename, FileHandle fh) {
+
+	}
+
 	/**
 	 **********************
 	 * FS Util Functions *
@@ -369,6 +375,13 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			.filter(s -> s.chars().filter(ch -> ch == '/').count() >= depth + 1)
 			.map(s -> s.substring(0, s.length() - 1))
 			.collect(Collectors.toSet());
+	}
+
+	public void reset() {
+		// reset namespace
+		namespace.clear();
+
+		// reset chunk to file/address mappings
 	}
 
 	/**
