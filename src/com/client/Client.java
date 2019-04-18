@@ -101,6 +101,28 @@ public class Client implements ClientInterface {
 		return null;
 	}
 	
+	
+	/**
+	 * Create a chunk at the chunk server from the client side.
+	 */
+	public String createChunk(String chunkhandle) {
+		try {
+			WriteOutput.writeInt(ChunkServer.PayloadSZ + ChunkServer.CMDlength);
+			WriteOutput.writeInt(ChunkServer.CreateChunkCMD);
+			byte [] chunkhandleBytes = chunkhandle.getBytes();
+			WriteOutput.write(chunkhandleBytes.length);
+			WriteOutput.write(chunkhandleBytes);
+			WriteOutput.flush();
+			
+			int ChunkHandleSize =  ReadIntFromInputStream("Client", ReadInput);
+			byte[] CHinBytes = RecvPayload("Client", ReadInput, ChunkHandleSize); 
+			return (new String(CHinBytes)).toString();
+		} catch (IOException e) {
+			System.out.println("Error in Client.createChunk:  Failed to create a chunk.");
+			e.printStackTrace();
+		} 
+		return null;
+	}
 	/**
 	 * Write a chunk at the chunk server from the client side.
 	 */

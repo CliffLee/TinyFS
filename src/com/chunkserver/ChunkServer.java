@@ -54,7 +54,6 @@ public class ChunkServer implements ChunkServerInterface {
 			long[] cntrs = new long[fs.length];
 			for (int j=0; j < cntrs.length; j++)
 				cntrs[j] = Long.valueOf( fs[j].getName() ); 
-			
 			Arrays.sort(cntrs);
 			counter = cntrs[cntrs.length - 1];
 		}
@@ -68,6 +67,38 @@ public class ChunkServer implements ChunkServerInterface {
 		counter++;
 		return String.valueOf(counter);
 	}
+	
+	// SP : Added for ClientRec
+	/**
+	 * Each chunk is corresponding to a file.
+	 * Return the chunk handle of the last chunk in the file.
+	 */
+	public String createChunk(String chunkhandle) {
+		try 
+		{
+			RandomAccessFile raf = new RandomAccessFile(filePath + chunkhandle, "rw");
+			//create a new chunk
+			byte [] chunk = new byte [ChunkSize];
+			ByteBuffer buffer = ByteBuffer.wrap(chunk);
+			//chunk num records
+			buffer.putInt(0);
+			//chunk offset (first free record space)
+			buffer.putInt(8);
+			while (buffer.remaining() >= 4)
+			{
+				buffer.putInt(-1);
+			}
+			raf.write(chunk);
+			raf.close();
+			return chunkhandle;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
 	
 	/**
 	 * Write the byte array to the chunk at the offset
@@ -150,10 +181,13 @@ public class ChunkServer implements ChunkServerInterface {
 					int CMD = Client.ReadIntFromInputStream("ChunkServer", ReadInput);
 					switch (CMD){
 					case CreateChunkCMD:
-						String chunkhandle = cs.createChunk();
-						byte[] CHinbytes = chunkhandle.getBytes();
-						WriteOutput.writeInt(ChunkServer.PayloadSZ + CHinbytes.length);
-						WriteOutput.write(CHinbytes);
+//						String chunkhandle = cs.createChunk();
+//						byte[] CHinbytes = chunkhandle.getBytes();
+						int chunkhandleSize =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
+						byte [] CHinbytes =  Client.RecvPayload("ChunkServer", ReadInput, chunkhandleSize);
+						byte [] chunkhandle = cs.createChunk().getBytes();
+						WriteOutput.writeInt(chunkhandle.length);
+						WriteOutput.write(chunkhandle);
 						WriteOutput.flush();
 						break;
 

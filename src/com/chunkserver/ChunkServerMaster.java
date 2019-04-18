@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import com.client.ClientRec;
 import com.client.ClientFS.FSReturnVals;
 import com.client.FileHandle;
 
@@ -33,6 +34,9 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	private int port;
 
 	public final static String MasterConfigFile = "MasterConfig.txt";
+	
+	// SP: This enables us to create new chunkhandles
+	private int ChunkIndex = 0;
 
 	// CL: This should be a map of paths to potential chunk handle lists
 	// CL: Thinking if List value is empty -> directory
@@ -48,6 +52,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}};
 	}
 
+	
 	public void serve() {
 		// port allocation and config writing
 		int servePort = 0;
@@ -262,6 +267,19 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 			.map(s -> s.substring(0, s.length() - 1))
 			.collect(Collectors.toSet());
 	}
+	
+	// SP: Added for appendRecord functionality
+	private String getLastChunk (String filepath) {
+		String s = "None";
+		if (this.namespace.containsKey(filepath)) {
+			List<String> chunks = this.namespace.get(filepath);
+			if (chunks.size() != 0)
+			{
+				return chunks.get(chunks.size()-1);
+			}
+		}
+		return s;
+	}
 
 	public void reset() {
 		// reset namespace
@@ -270,6 +288,48 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		// reset chunk to file/address mappings
 	}
 
+	// SP: Added for appendRecord functionality
+	private String addChunk(String filepath) {
+		String newChunkhandle = "None";
+		if (this.namespace.containsKey(filepath)) {
+			newChunkhandle = String.valueOf(ChunkIndex);
+			this.namespace.get(filepath).add(newChunkhandle);
+			ChunkIndex +=1;
+		}
+		return newChunkhandle;
+	}
+	
+	// SP: Added for getFirstRecord functionality
+	private String getChunk (String filepath, int chunkIndex) {
+		//Invalid chunkIndex
+		if (chunkIndex < -1)
+		{
+			return null;
+		}
+		String s = null;
+		if (this.namespace.containsKey(filepath)) {
+			List<String> chunks = this.namespace.get(filepath);
+			if ((chunks.size() != 0) && chunkIndex < chunks.size())
+			{
+				return chunks.get(chunkIndex);
+			}
+			else
+			{
+				return null;
+			}
+		}
+		return s;
+	}
+	
+	// SP: Added for getFirstRecord functionality
+	private int getNumChunks (String filepath) {
+		if (this.namespace.containsKey(filepath)) {
+			List<String> chunks = this.namespace.get(filepath);
+			return chunks.size();
+		}
+		return -1;
+	}	
+	
 	/**
 	 *********
 	 * Main *
