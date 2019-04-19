@@ -97,16 +97,19 @@ public class ClientRec {
 		}
 		//Get the last chunk in the file from master/or create a chunk if the file has no chunks
 		try {
-			MasterWriteOutput.writeInt(GET_LAST_CHUNK_COMMAND);
 			byte [] filepath  = ofh.filepath.getBytes();
+			int messageSize = 4 + 4 + 4 + filepath.length;
+			MasterWriteOutput.writeInt(messageSize);
+			MasterWriteOutput.writeInt(GET_LAST_CHUNK_COMMAND);
 			MasterWriteOutput.writeInt(filepath.length);
 			MasterWriteOutput.write(filepath);
 			MasterWriteOutput.flush();
 			int size = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
-			byte [] response = Client.RecvPayload("Client Rec", MasterReadInput, size);
+			byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, size);
 			Client c = new Client ();
 			String chunkhandle;
-			if (response.toString() == "None") {
+			String response = new String (responseBytes);
+			if (response.equals("None")) {
 				//get create new chunk, pass in chunkhandle from master
 				String newChunk = addChunk(filepath);
 				if (newChunk.equals("None")) {
@@ -115,7 +118,7 @@ public class ClientRec {
 				chunkhandle = c.createChunk(newChunk);
 			}
 			else {
-				chunkhandle = response.toString();
+				chunkhandle = response;
 			}
 
 			byte [] bytes = new byte [4];
@@ -131,6 +134,8 @@ public class ClientRec {
 			if (offset + RECORD_HEADER_SIZE + payload.length + RECORD_SLOT_SIZE > ChunkServer.ChunkSize - numRecords * 4) {
 				String newChunk = addChunk(filepath);
 				chunkhandle = c.createChunk(newChunk);
+				offset = 8;
+				numRecords = 0;
 			}
 			//add the offset+4 (start address) to the slot map of the chunk 
 			c.writeChunk(chunkhandle, ByteBuffer.wrap(bytes).putInt(offset + 4).array(), ChunkServer.ChunkSize-(numRecords * 4)-4);
@@ -195,8 +200,9 @@ public class ClientRec {
 	public FSReturnVals ReadFirstRecord(FileHandle ofh, TinyRec rec) {
 		try 
 		 {
-			MasterWriteOutput.writeInt(GET_NUM_CHUNKS_COMMAND);
 			byte [] filepath  = ofh.filepath.getBytes();
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length);
+			MasterWriteOutput.writeInt(GET_NUM_CHUNKS_COMMAND);
 			MasterWriteOutput.writeInt(filepath.length);
 			MasterWriteOutput.write(filepath);
 			MasterWriteOutput.flush();
@@ -212,30 +218,31 @@ public class ClientRec {
 			byte [] bytes = new byte [4];
 			while (chunkIndex < numChunks)
 			{
+				MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4);
 				MasterWriteOutput.writeInt(GET_CHUNK_COMMAND);
 				MasterWriteOutput.writeInt(filepath.length);
 				MasterWriteOutput.write(filepath);
 				MasterWriteOutput.writeInt(chunkIndex);				
 				MasterWriteOutput.flush();
-				
+			
 				int chunkhandleSize = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
-				byte [] response = Client.RecvPayload("Client Rec", MasterReadInput, chunkhandleSize);
-				if (response == null)
+				byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, chunkhandleSize);
+				if (responseBytes == null)
 				{
 					break;
 				}
-				chunkhandle = response.toString();
+				chunkhandle = new String (responseBytes);
 				//get number of records in chunk, using bytes #0-4 of the chunk
 				bytes = c.readChunk(chunkhandle, 0, 4);
 				int numRecords = ByteBuffer.wrap(bytes).getInt();
 				for (int i = 0; i<numRecords; i++)
 				{
 					//see if the record's slot is valid
-					byte [] recordOffsetBytes = c.readChunk(chunkhandle, ChunkServer.ChunkSize - 4 * RECORD_SLOT_SIZE, 4);
+					byte [] recordOffsetBytes = c.readChunk(chunkhandle, ChunkServer.ChunkSize - RECORD_SLOT_SIZE * i - 4, 4);
 					int recordOffset = ByteBuffer.wrap(recordOffsetBytes).getInt();
 					if (recordOffset != -1)
 					{
-						rec.setRID(new RID(chunkhandle, i));	
+						rec.setRID(new RID(chunkhandle, i+1));	
 						return ClientFS.FSReturnVals.Success;		
 					}
 				}
@@ -271,8 +278,9 @@ public class ClientRec {
 	public FSReturnVals ReadNextRecord(FileHandle ofh, RID pivot, TinyRec rec){
 		try 
 		 {
-			MasterWriteOutput.writeInt(GET_NUM_CHUNKS_COMMAND);
 			byte [] filepath  = ofh.filepath.getBytes();
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length);
+			MasterWriteOutput.writeInt(GET_NUM_CHUNKS_COMMAND);
 			MasterWriteOutput.writeInt(filepath.length);
 			MasterWriteOutput.write(filepath);
 			MasterWriteOutput.flush();
@@ -285,6 +293,7 @@ public class ClientRec {
 			String chunkhandle = pivot.chunkHandle;
 			int slot = pivot.slotNumber + 1;
 			
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4 + chunkhandle.getBytes().length);
 			MasterWriteOutput.writeInt(GET_CHUNK_INDEX_COMMAND);
 			MasterWriteOutput.writeInt(filepath.length);
 			MasterWriteOutput.write(filepath);
@@ -300,6 +309,7 @@ public class ClientRec {
 			byte [] bytes = new byte [4];
 			while (chunkIndex < numChunks)
 			{
+				MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4);
 				MasterWriteOutput.writeInt(GET_CHUNK_COMMAND);
 				MasterWriteOutput.writeInt(filepath.length);
 				MasterWriteOutput.write(filepath);
@@ -307,12 +317,12 @@ public class ClientRec {
 				MasterWriteOutput.flush();
 				
 				int chunkhandleSize = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
-				byte [] response = Client.RecvPayload("Client Rec", MasterReadInput, chunkhandleSize);
-				if (response == null)
+				byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, chunkhandleSize);
+				if (responseBytes == null)
 				{
 					break;
 				}
-				chunkhandle = response.toString();
+				chunkhandle = new String (responseBytes);
 				//get number of records in chunk, using bytes #0-4 of the chunk
 				bytes = c.readChunk(chunkhandle, 0, 4);
 				int numRecords = ByteBuffer.wrap(bytes).getInt();
@@ -356,13 +366,15 @@ public class ClientRec {
 	{
 		try 
 		{
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length);
 			MasterWriteOutput.writeInt(ADD_CHUNK_COMMAND);
 			MasterWriteOutput.writeInt(filepath.length);
 			MasterWriteOutput.write(filepath);
 			MasterWriteOutput.flush();
 			int size = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
-			byte [] response = Client.RecvPayload("Client Rec", MasterReadInput, size);	
-			return response.toString();
+			byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, size);	
+			String response = new String (responseBytes);
+			return response;
 		}
 		catch (Exception e)
 		{

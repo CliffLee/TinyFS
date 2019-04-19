@@ -107,13 +107,12 @@ public class Client implements ClientInterface {
 	 */
 	public String createChunk(String chunkhandle) {
 		try {
-			WriteOutput.writeInt(ChunkServer.PayloadSZ + ChunkServer.CMDlength);
-			WriteOutput.writeInt(ChunkServer.CreateChunkCMD);
 			byte [] chunkhandleBytes = chunkhandle.getBytes();
-			WriteOutput.write(chunkhandleBytes.length);
+			WriteOutput.writeInt(ChunkServer.PayloadSZ + ChunkServer.CMDlength + 4 + chunkhandleBytes.length);
+			WriteOutput.writeInt(ChunkServer.CreateChunkCMD);
+			WriteOutput.writeInt(chunkhandleBytes.length);
 			WriteOutput.write(chunkhandleBytes);
 			WriteOutput.flush();
-			
 			int ChunkHandleSize =  ReadIntFromInputStream("Client", ReadInput);
 			byte[] CHinBytes = RecvPayload("Client", ReadInput, ChunkHandleSize); 
 			return (new String(CHinBytes)).toString();
@@ -129,6 +128,7 @@ public class Client implements ClientInterface {
 	public boolean writeChunk(String ChunkHandle, byte[] payload, int offset) {
 		if(offset + payload.length > ChunkServer.ChunkSize){
 			System.out.println("The chunk write should be within the range of the file, invalide chunk write!");
+			System.exit(0);
 			return false;
 		}
 		try {
