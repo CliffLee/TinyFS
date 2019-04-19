@@ -322,6 +322,18 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}
 		return s;
 	}
+
+	// SP: Added for getNextRecord functionality
+		public int getChunkIndex (String filepath, String chunkHandle) {
+			if (this.namespace.containsKey(filepath))
+			{
+				List<String> chunks = this.namespace.get(filepath);
+				return chunks.indexOf(chunkHandle);
+				
+			}
+			return -1;
+		}	
+	
 	
 	// SP: Added for getFirstRecord functionality
 	public int getNumChunks (String filepath) {

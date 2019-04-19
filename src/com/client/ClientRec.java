@@ -242,7 +242,11 @@ public class ClientRec {
 					int recordOffset = ByteBuffer.wrap(recordOffsetBytes).getInt();
 					if (recordOffset != -1)
 					{
-						rec.setRID(new RID(chunkhandle, i+1));	
+						rec.setRID(new RID(chunkhandle, i+1));
+						bytes = c.readChunk(chunkhandle, recordOffset-4, 4);
+						int recordSize = ByteBuffer.wrap(bytes).getInt();
+						bytes = c.readChunk(chunkhandle, recordOffset, recordSize);
+						rec.setPayload(bytes);						
 						return ClientFS.FSReturnVals.Success;		
 					}
 				}
@@ -291,7 +295,7 @@ public class ClientRec {
 			}
 			
 			String chunkhandle = pivot.chunkHandle;
-			int slot = pivot.slotNumber + 1;
+			int slot = pivot.slotNumber;
 			
 			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4 + chunkhandle.getBytes().length);
 			MasterWriteOutput.writeInt(GET_CHUNK_INDEX_COMMAND);
@@ -329,11 +333,16 @@ public class ClientRec {
 				for (int i = slot; i<numRecords; i++)
 				{
 					//see if the record's slot is valid
-					byte [] recordOffsetBytes = c.readChunk(chunkhandle, ChunkServer.ChunkSize - 4 * RECORD_SLOT_SIZE, 4);
+					byte [] recordOffsetBytes = c.readChunk(chunkhandle, ChunkServer.ChunkSize - RECORD_SLOT_SIZE * i - 4, 4);
 					int recordOffset = ByteBuffer.wrap(recordOffsetBytes).getInt();
 					if (recordOffset != -1)
 					{
-						rec.setRID(new RID(chunkhandle, i));	
+						rec.setRID(new RID(chunkhandle, i+1));
+						bytes = c.readChunk(chunkhandle, recordOffset-4, 4);
+						int recordSize = ByteBuffer.wrap(bytes).getInt();
+						bytes = c.readChunk(chunkhandle, recordOffset, recordSize);
+						rec.setPayload(bytes);	
+						
 						return ClientFS.FSReturnVals.Success;		
 					}
 				}

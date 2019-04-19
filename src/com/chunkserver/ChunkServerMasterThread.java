@@ -167,6 +167,16 @@ public class ChunkServerMasterThread implements Runnable
 						oos.flush();	
 						break;
 						
+					case ClientRec.GET_CHUNK_INDEX_COMMAND:
+						int filename5Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename5 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename5Len));
+						int chunkHandleSize = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String chunkHandle =  new String(Client.RecvPayload("ChunkServerMaster", ois, chunkHandleSize));
+						int nextChunkIndex = master.getChunkIndex(filename5, chunkHandle);
+						oos.writeInt(nextChunkIndex);
+						oos.flush();			
+						break;						
+						
 					default:
 						break;
 				}
