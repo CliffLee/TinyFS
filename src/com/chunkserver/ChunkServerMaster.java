@@ -36,7 +36,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	public final static String MasterConfigFile = "MasterConfig.txt";
 	
 	// SP: This enables us to create new chunkhandles
-	private int ChunkIndex = 0;
+	private int ChunkIndex = 1;
 
 	// CL: This should be a map of paths to potential chunk handle lists
 	// CL: Thinking if List value is empty -> directory
@@ -271,7 +271,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 	
 	// SP: Added for appendRecord functionality
-	private String getLastChunk (String filepath) {
+	public String getLastChunk (String filepath) {
 		String s = "None";
 		if (this.namespace.containsKey(filepath)) {
 			List<String> chunks = this.namespace.get(filepath);
@@ -291,8 +291,8 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	// SP: Added for appendRecord functionality
-	private String addChunk(String filepath) {
-		String newChunkhandle = "None";
+	public String addChunk(String filepath) {
+		String newChunkhandle = null;
 		if (this.namespace.containsKey(filepath)) {
 			newChunkhandle = String.valueOf(ChunkIndex);
 			this.namespace.get(filepath).add(newChunkhandle);
@@ -302,7 +302,7 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 	
 	// SP: Added for getFirstRecord functionality
-	private String getChunk (String filepath, int chunkIndex) {
+	public String getChunk (String filepath, int chunkIndex) {
 		//Invalid chunkIndex
 		if (chunkIndex < -1)
 		{
@@ -322,9 +322,21 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		}
 		return s;
 	}
+
+	// SP: Added for getNextRecord functionality
+		public int getChunkIndex (String filepath, String chunkHandle) {
+			if (this.namespace.containsKey(filepath))
+			{
+				List<String> chunks = this.namespace.get(filepath);
+				return chunks.indexOf(chunkHandle);
+				
+			}
+			return -1;
+		}	
+	
 	
 	// SP: Added for getFirstRecord functionality
-	private int getNumChunks (String filepath) {
+	public int getNumChunks (String filepath) {
 		if (this.namespace.containsKey(filepath)) {
 			List<String> chunks = this.namespace.get(filepath);
 			return chunks.size();

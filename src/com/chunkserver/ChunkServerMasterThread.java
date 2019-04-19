@@ -10,6 +10,7 @@ import java.util.List;
 import com.client.Client;
 import com.client.ClientFS;
 import com.client.ClientFS.FSReturnVals;
+import com.client.ClientRec;
 
 public class ChunkServerMasterThread implements Runnable
 {
@@ -28,6 +29,7 @@ public class ChunkServerMasterThread implements Runnable
 		try {
 			ois = new ObjectInputStream(connection.getInputStream());
 			oos = new ObjectOutputStream(connection.getOutputStream());
+			System.out.println("Started a new connection");
 
 			while (!connection.isClosed()) {
 				// handle initial payload size and command before mux
@@ -131,6 +133,50 @@ public class ChunkServerMasterThread implements Runnable
 						break;
 					case ClientFS.CLOSE_FILE_COMMAND:
 						break;
+					case ClientRec.GET_LAST_CHUNK_COMMAND:
+						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename = new String(Client.RecvPayload("ChunkServerMaster", ois, filenameLen));
+						byte [] chunkhandle = master.getLastChunk(filename).getBytes();
+						oos.writeInt(chunkhandle.length);
+						oos.write(chunkhandle);
+						oos.flush();
+						break;
+						
+					case ClientRec.ADD_CHUNK_COMMAND:
+						int filename2Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename2 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename2Len));
+						byte [] chunkhandle2 = master.addChunk(filename2).getBytes();
+						oos.writeInt(chunkhandle2.length);
+						oos.write(chunkhandle2);
+						oos.flush();
+						break;
+						
+					case ClientRec.GET_NUM_CHUNKS_COMMAND:
+						int filename3Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename3 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename3Len));
+						oos.writeInt(master.getNumChunks(filename3));
+						oos.flush();
+						break;
+								
+					case ClientRec.GET_CHUNK_COMMAND:
+						int filename4Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename4 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename4Len));
+						int chunkIndex = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						byte [] chunkhandleName = master.getChunk(filename4, chunkIndex).getBytes();
+						oos.writeInt(chunkhandleName.length);
+						oos.write(chunkhandleName);
+						oos.flush();	
+						break;
+						
+					case ClientRec.GET_CHUNK_INDEX_COMMAND:
+						int filename5Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename5 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename5Len));
+						int chunkHandleSize = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String chunkHandle =  new String(Client.RecvPayload("ChunkServerMaster", ois, chunkHandleSize));
+						int nextChunkIndex = master.getChunkIndex(filename5, chunkHandle);
+						oos.writeInt(nextChunkIndex);
+						oos.flush();			
+						break;						
 					default:
 						break;
 				}

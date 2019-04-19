@@ -185,7 +185,7 @@ public class ChunkServer implements ChunkServerInterface {
 //						byte[] CHinbytes = chunkhandle.getBytes();
 						int chunkhandleSize =  Client.ReadIntFromInputStream("ChunkServer", ReadInput);
 						byte [] CHinbytes =  Client.RecvPayload("ChunkServer", ReadInput, chunkhandleSize);
-						byte [] chunkhandle = cs.createChunk().getBytes();
+						byte [] chunkhandle = cs.createChunk(new String (CHinbytes)).getBytes();
 						WriteOutput.writeInt(chunkhandle.length);
 						WriteOutput.write(chunkhandle);
 						WriteOutput.flush();
