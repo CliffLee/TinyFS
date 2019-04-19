@@ -1,5 +1,6 @@
 package com.chunkserver;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -11,6 +12,7 @@ import com.client.Client;
 import com.client.ClientFS;
 import com.client.ClientFS.FSReturnVals;
 import com.client.ClientRec;
+import com.client.FileHandle;
 
 public class ChunkServerMasterThread implements Runnable
 {
@@ -120,18 +122,33 @@ public class ChunkServerMasterThread implements Runnable
 						break;
 					case ClientFS.OPEN_FILE_COMMAND:
 						// req format: <filenameLen - filename>
-						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
-						String filename = new String(Client.RecvPayload("ChunkServerMaster", ois, filenameLen));
+						int filename6Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename6 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename6Len));
+						FileHandle fh = new FileHandle();
 
-						int nameLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
-						String name2 = new String(Client.RecvPayload("ChunkServerMaster", ois, nameLen2));
+						// resp format: <FSReturnVal.ordinal() - success?filehandlelen - success?filehandle>
+						FSReturnVals res = master.openFile(filename6, fh);
+						oos.writeInt(res.ordinal());
 
-						// resp format: <FSReturnVal.ordinal() - success?filehandle>
-						oos.writeInt(master.deleteFile(parent2, name2).ordinal());
+						// if we successfully created a file, there will be an associated filehandle that comes with it
+						if (res == FSReturnVals.Success) {
+							ByteArrayOutputStream bos = new ByteArrayOutputStream();
+							ObjectOutputStream out = new ObjectOutputStream(bos);
+							out.writeObject(fh);
+							out.flush();
+							
+							byte[] bfh = bos.toByteArray();
+							
+							oos.writeInt(bfh.length);
+							oos.write(bfh);
+						}
+
 						oos.flush();
 
 						break;
 					case ClientFS.CLOSE_FILE_COMMAND:
+						// TODO
+						System.out.println("omegalul");
 						break;
 					case ClientRec.GET_LAST_CHUNK_COMMAND:
 						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);

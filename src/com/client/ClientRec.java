@@ -16,24 +16,12 @@ import com.client.RID;
 
 public class ClientRec {
 
-	// Directory CRUD codes
-	public static final int CREATE_DIR_COMMAND = 0;
-	public static final int LIST_DIR_COMMAND = 1;
-	public static final int DELETE_DIR_COMMAND = 2;
-	public static final int RENAME_DIR_COMMAND = 3;
-
-	// File CRUD codes
-	public static final int CREATE_FILE_COMMAND = 4;
-	public static final int OPEN_FILE_COMMAND = 5;
-	public static final int DELETE_FILE_COMMAND = 6;
-	
-	
 	// SP: Added for ClientRec
-	public static final int GET_LAST_CHUNK_COMMAND = 7;
-	public static final int ADD_CHUNK_COMMAND = 8;
-	public static final int GET_NUM_CHUNKS_COMMAND = 9;
-	public static final int GET_CHUNK_COMMAND = 10;
-	public static final int GET_CHUNK_INDEX_COMMAND = 11;
+	public static final int GET_LAST_CHUNK_COMMAND = 8;
+	public static final int ADD_CHUNK_COMMAND = 9;
+	public static final int GET_NUM_CHUNKS_COMMAND = 10;
+	public static final int GET_CHUNK_COMMAND = 11;
+	public static final int GET_CHUNK_INDEX_COMMAND = 12;
 	
 	public static final int RECORD_HEADER_SIZE = 4;
 	public static final int RECORD_SLOT_SIZE = 4;

@@ -214,8 +214,16 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	public FSReturnVals openFile(String filename, FileHandle fh) {
+		// check if file exists
+		if (!fileExists(filename)) {
+			return FSReturnVals.FileDoesNotExist;
+		}
+
 		// TODO CL: probably more lock stuff here
+
+		// grant lease (CL: right now this is just allowing the filehandle to use the name)
 		fh.setFilePath(filename);
+
 		return FSReturnVals.Success;
 	}
 
