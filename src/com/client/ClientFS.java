@@ -41,7 +41,7 @@ public class ClientFS {
 	// File CRUD codes
 	public static final int CREATE_FILE_COMMAND = 4;
 	public static final int OPEN_FILE_COMMAND = 5;
-	public static final int DELETE_FILE_COMMAND = 6;
+	public static final int CLOSE_FILE_COMMAND = 6;
 	
 	static int ServerPort = 0;
 	static Socket ClientSocket;

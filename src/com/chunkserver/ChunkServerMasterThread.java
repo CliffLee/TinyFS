@@ -116,18 +116,20 @@ public class ChunkServerMasterThread implements Runnable
 						oos.flush();
 
 						break;
-					case ClientFS.DELETE_FILE_COMMAND:
-						// req format: <parentLen - parentBytes - nameLen - nameBytes>
-						int parentLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
-						String parent2 = new String(Client.RecvPayload("ChunkServerMaster", ois, parentLen2));
+					case ClientFS.OPEN_FILE_COMMAND:
+						// req format: <filenameLen - filename>
+						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename = new String(Client.RecvPayload("ChunkServerMaster", ois, filenameLen));
 
 						int nameLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
 						String name2 = new String(Client.RecvPayload("ChunkServerMaster", ois, nameLen2));
 
-						// resp format: <FSReturnVal.ordinal()>
+						// resp format: <FSReturnVal.ordinal() - success?filehandle>
 						oos.writeInt(master.deleteFile(parent2, name2).ordinal());
 						oos.flush();
 
+						break;
+					case ClientFS.CLOSE_FILE_COMMAND:
 						break;
 					default:
 						break;
