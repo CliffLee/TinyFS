@@ -14,6 +14,8 @@ import java.util.List;
 import com.chunkserver.ChunkServer;
 import com.chunkserver.ChunkServerMaster;
 
+import org.apache.commons.io.output.ByteArrayOutputStream;
+
 public class ClientFS {
 
 	public enum FSReturnVals {
@@ -338,7 +340,28 @@ public class ClientFS {
 	 * Example usage: CloseFile(FH1)
 	 */
 	public FSReturnVals CloseFile(FileHandle ofh) {
-		return null;
+		try {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			ObjectOutputStream out = new ObjectOutputStream(bos);
+			out.writeObject(ofh);
+			out.flush();
+
+			byte[] bfh = bos.toByteArray();
+
+			int payloadSize = 4 + 4 + 4 + bfh.length;
+
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(CLOSE_FILE_COMMAND);
+			WriteOutput.writeInt(bfh.length);
+			WriteOutput.write(bfh);
+			WriteOutput.flush();
+
+			return FSReturnVals.values()[Client.ReadIntFromInputStream("ClientFS", ReadInput)];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return FSReturnVals.Fail;
 	}
 
 }

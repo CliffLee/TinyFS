@@ -50,6 +50,7 @@ public class UnitTest5 {
 				payload[j] = 'b';
 			}
 			RID rid = new RID();
+			System.out.println("Appending record " + i);
 			crec.AppendRecord(fh, payload, rid);
 		}
 		fsrv = cfs.CloseFile(fh);

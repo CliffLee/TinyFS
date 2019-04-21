@@ -1,5 +1,6 @@
 package com.chunkserver;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -147,8 +148,13 @@ public class ChunkServerMasterThread implements Runnable
 
 						break;
 					case ClientFS.CLOSE_FILE_COMMAND:
-						// TODO
-						System.out.println("omegalul");
+						int fileHandleLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						ObjectInputStream deserializer = new ObjectInputStream(new ByteArrayInputStream(Client.RecvPayload("ChunkServerMaster", ois, fileHandleLen)));
+						FileHandle filehandle = (FileHandle) deserializer.readObject();
+
+						oos.writeInt(master.closeFile(filehandle).ordinal());
+						oos.flush();
+
 						break;
 					case ClientRec.GET_LAST_CHUNK_COMMAND:
 						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
@@ -198,7 +204,7 @@ public class ChunkServerMasterThread implements Runnable
 						break;
 				}
 			}
-		} catch(IOException e){
+		} catch(IOException | ClassNotFoundException e){
 			e.printStackTrace();
 		} finally {
 			try {

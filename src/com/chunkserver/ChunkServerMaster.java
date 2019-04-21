@@ -227,6 +227,17 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 		return FSReturnVals.Success;
 	}
 
+	public FSReturnVals closeFile(FileHandle fh) {
+		// check if file exists
+		if (!fileExists(fh.filepath)) {
+			return FSReturnVals.FileDoesNotExist;
+		}
+
+		// release locks
+
+		return FSReturnVals.Success;
+	}
+
 	/**
 	 **********************
 	 * FS Util Functions *
