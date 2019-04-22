@@ -69,8 +69,9 @@ public class UnitTest5 {
 				if(value % 2 == 0){
 					vect.add(r2.getRID());
 				}
-				r1 = r2;
+				
 				cntr++;
+				r1 = r2;
 			}else{
 				r1.setRID(null);
 			}

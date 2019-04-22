@@ -83,17 +83,21 @@ public class ClientRec {
 		if (payload.length > ChunkServer.ChunkSize) {
 			return ClientFS.FSReturnVals.RecordTooLong;
 		}
+
 		//Get the last chunk in the file from master/or create a chunk if the file has no chunks
 		try {
 			byte [] filepath  = ofh.filepath.getBytes();
 			int messageSize = 4 + 4 + 4 + filepath.length;
+
 			MasterWriteOutput.writeInt(messageSize);
 			MasterWriteOutput.writeInt(GET_LAST_CHUNK_COMMAND);
 			MasterWriteOutput.writeInt(filepath.length);
 			MasterWriteOutput.write(filepath);
 			MasterWriteOutput.flush();
+
 			int size = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
 			byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, size);
+
 			Client c = new Client ();
 			String chunkhandle;
 			String response = new String (responseBytes);
@@ -136,8 +140,8 @@ public class ClientRec {
 			//update the new next available record
 			c.writeChunk(chunkhandle, ByteBuffer.wrap(bytes).putInt(RECORD_HEADER_SIZE + payload.length + offset).array(), 4);
 			//populate the record ID
-			RecordID.slotNumber = numRecords+1;
 			RecordID.chunkHandle = chunkhandle;
+			RecordID.slotNumber = numRecords+1; // IMPORTANT: SLOT RECORD IS NOT ZERO INDEXED, BUT SLOT WRITING IS
 			//return success if you get to this step!
 			return ClientFS.FSReturnVals.Success;		
 	
@@ -256,7 +260,75 @@ public class ClientRec {
 	 * Example usage: ReadLastRecord(FH1, tinyRec)
 	 */
 	public FSReturnVals ReadLastRecord(FileHandle ofh, TinyRec rec){
-		return null;
+		try 
+		 {
+			byte [] filepath  = ofh.filepath.getBytes();
+
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length);
+			MasterWriteOutput.writeInt(GET_NUM_CHUNKS_COMMAND);
+			MasterWriteOutput.writeInt(filepath.length);
+			MasterWriteOutput.write(filepath);
+			MasterWriteOutput.flush();
+
+			int numChunks = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
+			if (numChunks == -1)
+			{
+				return ClientFS.FSReturnVals.BadHandle;   
+			}
+
+			String chunkhandle = null;
+
+			// int slot = -1;
+			int chunkIndex = numChunks - 1;
+
+			Client c = new Client ();
+			byte [] bytes = new byte [4];
+			while (chunkIndex >= 0)
+			{
+				MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4);
+				MasterWriteOutput.writeInt(GET_CHUNK_COMMAND);
+				MasterWriteOutput.writeInt(filepath.length);
+				MasterWriteOutput.write(filepath);
+				MasterWriteOutput.writeInt(chunkIndex);				
+				MasterWriteOutput.flush();
+			
+				int chunkhandleSize = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
+				byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, chunkhandleSize);
+				if (responseBytes == null)
+				{
+					break;
+				}
+				chunkhandle = new String (responseBytes);
+
+				//get number of records in chunk, using bytes #0-4 of the chunk
+				bytes = c.readChunk(chunkhandle, 0, 4);
+				int numRecords = ByteBuffer.wrap(bytes).getInt();
+				for (int i = numRecords; i >= 1; i--)
+				{
+					//see if the record's slot is valid
+					byte [] recordOffsetBytes = c.readChunk(chunkhandle, ChunkServer.ChunkSize - (RECORD_SLOT_SIZE * (i - 1)) - 4, 4);
+					int recordOffset = ByteBuffer.wrap(recordOffsetBytes).getInt();
+					if (recordOffset != -1)
+					{
+						System.out.println("retrieved last record at slot number: " + i);
+						rec.setRID(new RID(chunkhandle, i));
+						bytes = c.readChunk(chunkhandle, recordOffset-4, 4);
+						int recordSize = ByteBuffer.wrap(bytes).getInt();
+						bytes = c.readChunk(chunkhandle, recordOffset, recordSize);
+						rec.setPayload(bytes);						
+						return ClientFS.FSReturnVals.Success;		
+					}
+				}
+
+				chunkIndex--;
+			}
+			return ClientFS.FSReturnVals.RecDoesNotExist;
+		 }
+		
+		catch (Exception e)
+		{
+			return ClientFS.FSReturnVals.Fail;
+		}
 	}
 
 	/**
@@ -355,7 +427,89 @@ public class ClientRec {
 	 * recn-1, tinyRec2) 3. ReadPrevRecord(FH1, recn-2, tinyRec3)
 	 */
 	public FSReturnVals ReadPrevRecord(FileHandle ofh, RID pivot, TinyRec rec){
-		return null;		
+		try 
+		 {
+			byte [] filepath  = ofh.filepath.getBytes();
+
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length);
+			MasterWriteOutput.writeInt(GET_NUM_CHUNKS_COMMAND);
+			MasterWriteOutput.writeInt(filepath.length);
+			MasterWriteOutput.write(filepath);
+			MasterWriteOutput.flush();
+
+			int numChunks = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
+			if (numChunks == -1)
+			{
+				return ClientFS.FSReturnVals.BadHandle;   
+			}
+			
+			String chunkhandle = pivot.chunkHandle;
+			int startSlot = pivot.slotNumber;
+			
+			MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4 + chunkhandle.getBytes().length);
+			MasterWriteOutput.writeInt(GET_CHUNK_INDEX_COMMAND);
+			MasterWriteOutput.writeInt(filepath.length);
+			MasterWriteOutput.write(filepath);
+			MasterWriteOutput.writeInt(chunkhandle.getBytes().length);
+			MasterWriteOutput.write(chunkhandle.getBytes());			
+			MasterWriteOutput.flush();
+
+			int startChunkIndex = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
+			if (startChunkIndex == -1)
+			{
+				return ClientFS.FSReturnVals.BadRecID;
+			}
+			int chunkIndex = startChunkIndex;
+
+			Client c = new Client ();
+			byte [] bytes = new byte [4];
+			while (chunkIndex >= 0)
+			{
+				MasterWriteOutput.writeInt(4 + 4 + 4 + filepath.length + 4);
+				MasterWriteOutput.writeInt(GET_CHUNK_COMMAND);
+				MasterWriteOutput.writeInt(filepath.length);
+				MasterWriteOutput.write(filepath);
+				MasterWriteOutput.writeInt(chunkIndex);				
+				MasterWriteOutput.flush();
+				
+				int chunkhandleSize = Client.ReadIntFromInputStream("Client Rec", MasterReadInput);
+				byte [] responseBytes = Client.RecvPayload("Client Rec", MasterReadInput, chunkhandleSize);
+				if (responseBytes == null)
+				{
+					break;
+				}
+				chunkhandle = new String (responseBytes);
+
+				//get number of records in chunk, using bytes #0-4 of the chunk
+				bytes = c.readChunk(chunkhandle, 0, 4);
+				int numRecords = ByteBuffer.wrap(bytes).getInt();
+				// IMPORTANT: IT'S NOT CHECKING THE LAST RECORD IN NON-ORIGCHUNK CHUNKS
+				for (int i = chunkIndex == startChunkIndex ? startSlot - 1 : numRecords; i >= 1; i--)
+				{
+					//see if the record's slot is valid
+					byte [] recordOffsetBytes = c.readChunk(chunkhandle, ChunkServer.ChunkSize - RECORD_SLOT_SIZE * (i - 1) - 4, 4);
+					int recordOffset = ByteBuffer.wrap(recordOffsetBytes).getInt();
+					if (recordOffset != -1)
+					{
+						rec.setRID(new RID(chunkhandle, i));
+						bytes = c.readChunk(chunkhandle, recordOffset-4, 4);
+						int recordSize = ByteBuffer.wrap(bytes).getInt();
+						bytes = c.readChunk(chunkhandle, recordOffset, recordSize);
+						rec.setPayload(bytes);	
+						
+						return ClientFS.FSReturnVals.Success;		
+					}
+				}
+				// slot = 0;
+				chunkIndex--;
+			}
+			return ClientFS.FSReturnVals.RecDoesNotExist;
+		 }
+		
+		catch (Exception e)
+		{
+			return ClientFS.FSReturnVals.Fail;
+		}
 	}
 	
 	// SP: Utility Methods

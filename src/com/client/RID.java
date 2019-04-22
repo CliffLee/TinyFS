@@ -4,8 +4,6 @@ public class RID {
 
 	public String chunkHandle;
 	public int slotNumber;
-	public String macAddress;
-	public int key;
 	
 	public RID() {
 		chunkHandle = "somethingstupid";
@@ -17,8 +15,6 @@ public class RID {
 	{
 		this.chunkHandle = c;
 		this.slotNumber = s;	
-		macAddress = "somethingstupid";
-		key = 0;
 	}
 
 	public String resolve() {
