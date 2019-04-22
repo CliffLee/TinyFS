@@ -2,6 +2,7 @@
 .DS_Store
 
 # Temporary database backing directories
+csci485/*
 csci485Disk/
 temp/
 

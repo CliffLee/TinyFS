@@ -1,5 +1,7 @@
 package com.chunkserver;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -11,6 +13,7 @@ import com.client.Client;
 import com.client.ClientFS;
 import com.client.ClientFS.FSReturnVals;
 import com.client.ClientRec;
+import com.client.FileHandle;
 
 public class ChunkServerMasterThread implements Runnable
 {
@@ -118,20 +121,55 @@ public class ChunkServerMasterThread implements Runnable
 						oos.flush();
 
 						break;
-					case ClientFS.OPEN_FILE_COMMAND:
-						// req format: <filenameLen - filename>
-						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
-						String filename = new String(Client.RecvPayload("ChunkServerMaster", ois, filenameLen));
+					case ClientFS.DELETE_FILE_COMMAND:
+						// req format: <parentLen - parentBytes - nameLen - nameBytes>
+						int parentLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String parent2 = new String(Client.RecvPayload("ChunkServerMaster", ois, parentLen2));
 
 						int nameLen2 = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
 						String name2 = new String(Client.RecvPayload("ChunkServerMaster", ois, nameLen2));
 
-						// resp format: <FSReturnVal.ordinal() - success?filehandle>
+						// resp format: <FSReturnVal.ordinal()>
 						oos.writeInt(master.deleteFile(parent2, name2).ordinal());
 						oos.flush();
 
 						break;
+					case ClientFS.OPEN_FILE_COMMAND:
+						// req format: <filenameLen - filename>
+						int filename6Len = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						String filename6 = new String(Client.RecvPayload("ChunkServerMaster", ois, filename6Len));
+						FileHandle fh = new FileHandle();
+
+						// resp format: <FSReturnVal.ordinal() - success?filehandle>
+						FSReturnVals res = master.openFile(filename6, fh);
+						oos.writeInt(res.ordinal());
+
+						if (res == FSReturnVals.Success) {
+							// convert filehandle object to bytes
+							ByteArrayOutputStream bos = new ByteArrayOutputStream();
+							ObjectOutputStream out = new ObjectOutputStream(bos);
+
+							out.writeObject(fh);
+							out.flush();
+
+							byte[] bfh = bos.toByteArray();
+
+							// write to response
+							oos.writeInt(bfh.length);
+							oos.write(bfh);
+						}
+
+						oos.flush();
+
+						break;
 					case ClientFS.CLOSE_FILE_COMMAND:
+						int fileHandleLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
+						ObjectInputStream deserializer = new ObjectInputStream(new ByteArrayInputStream(Client.RecvPayload("ChunkServerMaster", ois, fileHandleLen)));
+						FileHandle filehandle = (FileHandle) deserializer.readObject();
+
+						oos.writeInt(master.closeFile(filehandle).ordinal());
+						oos.flush();
+
 						break;
 					case ClientRec.GET_LAST_CHUNK_COMMAND:
 						int filenameLen = Client.ReadIntFromInputStream("ChunkServerMaster", ois);
@@ -181,7 +219,7 @@ public class ChunkServerMasterThread implements Runnable
 						break;
 				}
 			}
-		} catch(IOException e){
+		} catch(IOException | ClassNotFoundException e){
 			e.printStackTrace();
 		} finally {
 			try {

@@ -1,7 +1,11 @@
 package com.client;
 
-public class FileHandle {
-	private String temp;
+import java.io.Serializable;
+
+public class FileHandle implements Serializable {
+	private static final long serialVersionUID = 42L;
+
+	public String temp;
 	public String filepath;
 	
 	public FileHandle() {
@@ -10,5 +14,10 @@ public class FileHandle {
 
 	public void setFilePath(String path) {
 		this.filepath = path;
+	}
+
+	public void setToHandle(FileHandle fh) {
+		this.temp = fh.temp;
+		this.filepath = fh.filepath;
 	}
 }

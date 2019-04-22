@@ -1,6 +1,8 @@
 package com.client;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -40,8 +42,9 @@ public class ClientFS {
 
 	// File CRUD codes
 	public static final int CREATE_FILE_COMMAND = 4;
-	public static final int OPEN_FILE_COMMAND = 5;
-	public static final int CLOSE_FILE_COMMAND = 6;
+	public static final int DELETE_FILE_COMMAND = 5;
+	public static final int OPEN_FILE_COMMAND = 6;
+	public static final int CLOSE_FILE_COMMAND = 7;
 	
 	static int ServerPort = 0;
 	static Socket ClientSocket;
@@ -299,8 +302,36 @@ public class ClientFS {
 	 */
 	public FSReturnVals OpenFile(String FilePath, FileHandle ofh) {
 		// TODO CL: temp
-		ofh.filepath = FilePath;
-		return FSReturnVals.Success;
+		byte[] file = FilePath.getBytes();
+		int fileLen = file.length;
+
+		int payloadSize = 4 + 4 + 4 + fileLen;
+
+		try {
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(OPEN_FILE_COMMAND);
+			WriteOutput.writeInt(fileLen);
+			WriteOutput.write(file);
+			WriteOutput.flush();
+
+		FSReturnVals response = FSReturnVals.values()[
+				Client.ReadIntFromInputStream("ClientFS", ReadInput)
+			];
+
+			// if successfully opened, prepare for handle reading
+			if (response == FSReturnVals.Success) {
+				int fhLen = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+				ObjectInputStream deserializer = new ObjectInputStream(new ByteArrayInputStream(Client.RecvPayload("ClientFS", ReadInput, fhLen)));
+				FileHandle nfh = (FileHandle) deserializer.readObject();
+				ofh.setToHandle(nfh);
+			}
+
+			return response;
+		} catch (IOException | ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+
+		return FSReturnVals.Fail;
 	}
 
 	/**
@@ -309,7 +340,30 @@ public class ClientFS {
 	 * Example usage: CloseFile(FH1)
 	 */
 	public FSReturnVals CloseFile(FileHandle ofh) {
-		return null;
+		try {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			ObjectOutputStream out = new ObjectOutputStream(bos);
+			out.writeObject(ofh);
+			out.flush();
+
+			byte[] bfh = bos.toByteArray();
+
+			int payloadSize = 4 + 4 + 4 + bfh.length;
+
+			WriteOutput.writeInt(payloadSize);
+			WriteOutput.writeInt(CLOSE_FILE_COMMAND);
+			WriteOutput.writeInt(bfh.length);
+			WriteOutput.write(bfh);
+			WriteOutput.flush();
+			
+			int result = Client.ReadIntFromInputStream("ClientFS", ReadInput);
+
+			return FSReturnVals.values()[result];
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return FSReturnVals.Fail;
 	}
 
 }

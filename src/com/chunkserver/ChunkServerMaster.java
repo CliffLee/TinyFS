@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import com.chunkserver.ChunkServerMasterThread;
 import com.client.ClientRec;
 import com.client.ClientFS.FSReturnVals;
 import com.client.FileHandle;
@@ -214,8 +215,24 @@ public class ChunkServerMaster implements ChunkServerMasterInterface {
 	}
 
 	public FSReturnVals openFile(String filename, FileHandle fh) {
+		// check if file exists
+		if (!fileExists(filename)) {
+			return FSReturnVals.FileDoesNotExist;
+		}
+
 		// TODO CL: probably more lock stuff here
 		fh.setFilePath(filename);
+
+		return FSReturnVals.Success;
+	}
+
+	public FSReturnVals closeFile(FileHandle fh) {
+		if (!fileExists(fh.filepath)) {
+			return FSReturnVals.FileDoesNotExist;
+		}
+
+		// release locks
+		// success
 		return FSReturnVals.Success;
 	}
 
