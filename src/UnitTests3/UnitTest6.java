@@ -74,7 +74,7 @@ public class UnitTest6 {
 			System.arraycopy(contentBytes, 0, IMG_rec, indexBytes.length + sizeBytes.length, contentBytes.length);
 			
 			RID rid = new RID();
-			crec.AppendRecord(ImageFH, IMG_rec, rid);  //append the image record
+			FSReturnVals appendResp = crec.AppendRecord(ImageFH, IMG_rec, rid);  //append the image record
 			
 			//construct the record containing the name of the superhero
 			contentBytes = filename.getBytes();
